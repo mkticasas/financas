@@ -1,0 +1,42 @@
+name: Manter Supabase ativo
+
+# Faz uma consulta leve a cada 3 dias para o projeto gratuito não pausar.
+# Uma vez por mês grava a data em .keepalive (commit), porque o GitHub
+# desliga agendamentos de repositórios sem commits por 60 dias.
+
+on:
+  schedule:
+    - cron: "17 12 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      SB_URL: https://clefxqpoxwdflvwukbcb.supabase.co
+      SB_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q
+    steps:
+      - name: Consultar o banco
+        run: |
+          curl -fsS --retry 3 --retry-delay 20 \
+            "$SB_URL/rest/v1/ping?select=id&limit=1" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+          echo
+          echo "Supabase respondeu."
+
+      - uses: actions/checkout@v4
+
+      - name: Registrar o mês (evita o GitHub desligar o agendamento)
+        run: |
+          MES=$(date -u +%Y-%m)
+          if [ "$(cat .keepalive 2>/dev/null)" != "$MES" ]; then
+            echo "$MES" > .keepalive
+            git config user.name "keepalive-bot"
+            git config user.email "keepalive-bot@users.noreply.github.com"
+            git add .keepalive
+            git commit -m "keepalive $MES"
+            git push
+          fi
