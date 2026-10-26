@@ -158,6 +158,14 @@ button.row:hover{background:var(--s2)}
 .err{color:var(--red);font-size:.85rem}
 .err:empty{display:none}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.picks{display:flex;flex-direction:column;gap:10px}
+.pick{display:flex;gap:14px;align-items:center;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:16px;width:100%}
+.pick:hover:not(:disabled){border-color:var(--gold)}
+.pick:disabled{opacity:.5;cursor:default}
+.pick b{display:block;font-size:1.05rem}
+.pick small{display:block;color:var(--fg2);font-size:.84rem;margin-top:2px}
+.pick-ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;flex:none}
+.pick-ico svg{width:24px;height:24px}
 .seg.seg3{grid-template-columns:repeat(3,1fr)}
 .seg button[data-tipo="transferencia"][aria-pressed="true"]{color:var(--gold2)}
 .seg button{border:0;background:none;padding:9px;border-radius:9px;font-weight:600;color:var(--fg2)}
@@ -264,7 +272,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1406";
+const APP_VERSION = "2026.10.26-1407";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -1007,6 +1015,19 @@ function bindTipo(root, pref, onChange) {
   }));
 }
 
+/* ----- escolha do tipo (ao tocar no +) ----- */
+function openEscolha() {
+  const poucas = S.contas.filter(c => c.ativa).length < 2;
+  const op = (tipo, cor, ico, t, d, off) => `<button class="pick" data-act="escolha" data-tipo="${tipo}" ${off ? "disabled" : ""}>
+    <span class="pick-ico" style="color:${cor};background:color-mix(in srgb, ${cor} 14%, transparent)">${ico}</span>
+    <span><b>${t}</b><small>${d}</small></span></button>`;
+  openSheet("O que vai lançar?", `<div class="picks">
+    ${op("despesa", "var(--red)", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>', "Despesa", "Gasto, conta, compra. Dá para ler o comprovante por foto.")}
+    ${op("receita", "var(--green)", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>', "Receita", "Salário, freela, reembolso, Pix recebido.")}
+    ${op("transferencia", "var(--gold)", '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg>', "Transferir", poucas ? "Cadastre pelo menos duas contas em Mais → Contas." : "Mover dinheiro de uma conta para outra.", poucas)}
+  </div>`);
+}
+
 /* ----- lançamento ----- */
 function openTx(t = null, preset = {}, onSaved = null) {
   const ed = !!t;
@@ -1223,7 +1244,8 @@ const ACT = {
   sair: async () => { await sb.auth.signOut(); location.reload(); },
   go: a => { S.view = a.dataset.v; S.sub = a.dataset.s || null; ARM = null; render(); window.scrollTo(0, 0); },
   mes: a => { S.mes = shiftMk(S.mes, Number(a.dataset.k)); render(); },
-  novo: () => openTx(),
+  novo: () => openEscolha(),
+  escolha: a => { const t = a.dataset.tipo; closeSheet(); openTx(null, { tipo: t }); },
   close: () => closeSheet(),
   edittx: a => { const t = S.tx.find(x => x.id === a.dataset.id); if (t) openTx(t); },
   editrec: a => { const r = S.rec.find(x => x.id === a.dataset.id); if (r) openRec(r); },
