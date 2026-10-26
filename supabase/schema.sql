@@ -11,6 +11,7 @@ create table if not exists public.casais (
   id uuid primary key default gen_random_uuid(),
   nome text not null default 'Nosso casal',
   codigo text unique not null default upper(substr(md5(random()::text), 1, 6)),
+  meta_mensal numeric(12,2),
   created_at timestamptz not null default now()
 );
 
@@ -20,6 +21,8 @@ create table if not exists public.perfis (
   nome text not null,
   cor text not null default '#5c8de0',
   renda_mensal numeric(12,2),
+  foto text,
+  prefs jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 

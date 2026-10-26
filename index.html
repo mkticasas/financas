@@ -49,7 +49,21 @@ h3{font-size:.95rem;font-weight:600}
 .month{display:flex;align-items:center;gap:4px;flex:none}
 .month button{background:none;border:1px solid var(--line);border-radius:10px;width:32px;height:32px;color:var(--fg2);font-size:1.1rem;line-height:1;padding:0}
 .month strong{font-weight:600;font-size:.88rem;min-width:4.8rem;text-align:center;text-transform:capitalize;white-space:nowrap}
-.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.85rem;color:var(--bg);flex:none;border:0}
+.avatar{border-radius:50%;display:grid;place-items:center;font-weight:700;color:var(--bg);flex:none;border:0}
+.avatar-btn{background:none;border:0;padding:0;border-radius:50%;flex:none;display:grid}
+.eye{background:none;border:0;color:var(--fg3);width:32px;height:32px;display:grid;place-items:center;padding:0;flex:none}
+.eye svg{width:20px;height:20px}
+.eye[aria-pressed="true"]{color:var(--gold)}
+.check-row{display:flex;gap:10px;align-items:center;font-size:.92rem;color:var(--fg2)}
+.check-row input{width:20px;height:20px;accent-color:var(--gold);flex:none}
+.hero{display:flex;gap:16px;align-items:center}
+.hero .who-name{font-family:var(--serif);font-size:1.5rem;line-height:1.1}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatches label{position:relative}
+.swatches input{position:absolute;opacity:0;inset:0;margin:0}
+.swatches span{display:block;width:34px;height:34px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 3px var(--s1)}
+.swatches input:checked+span{border-color:var(--fg)}
+.swatches input:focus-visible+span{outline:2px solid var(--gold);outline-offset:2px}
 
 main{padding-block:18px 24px;display:flex;flex-direction:column;gap:14px}
 .card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -196,14 +210,22 @@ button.row:hover{background:var(--s2)}
 /* ===================== Configuração ===================== */
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
-const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+// "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
+const lembrar = () => { try { return localStorage.getItem("lembrar") !== "0"; } catch (e) { return true; } };
+const authStore = {
+  getItem: k => { try { return localStorage.getItem(k) ?? sessionStorage.getItem(k); } catch (e) { return null; } },
+  setItem: (k, v) => { try { if (lembrar()) { localStorage.setItem(k, v); sessionStorage.removeItem(k); } else { sessionStorage.setItem(k, v); localStorage.removeItem(k); } } catch (e) {} },
+  removeItem: k => { try { localStorage.removeItem(k); sessionStorage.removeItem(k); } catch (e) {} },
+};
+const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: authStore } });
 
 /* ===================== Utilidades ===================== */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const C = v => Math.round(Number(v || 0) * 100);              // reais -> centavos
 const R = c => (Math.round(c) / 100).toFixed(2);              // centavos -> "12.34"
-const brl = c => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+let OCULTO = false; try { OCULTO = localStorage.getItem("ocultar") === "1"; } catch (e) {}
+const brl = c => OCULTO ? "R$ •••" : (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtIn = c => (c / 100).toFixed(2).replace(".", ",");
 function parseMoney(s) {
   s = String(s || "").trim().replace(/[R$\s]/g, "");
@@ -243,6 +265,13 @@ const ICON = {
   cart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>',
 };
+ICON.eye = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+ICON.eyeoff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.9 0 3.5-.6 4.9-1.4M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function avatar(p, size) {
+  const st = `width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px;background:${esc(p?.cor || "#5c8de0")}`;
+  return p?.foto ? `<img class="avatar" src="${esc(p.foto)}" alt="" style="${st};object-fit:cover">` : `<span class="avatar" style="${st}">${esc(((p?.nome || "?").trim()[0] || "?").toUpperCase())}</span>`;
+}
+const CORES = ["#5c8de0", "#9b7fe0", "#5cb87a", "#4fb0b0", "#d4a84b", "#e0915c", "#e05c5c", "#d07fb0"];
 const MARK = '<svg class="mark" viewBox="0 0 64 64"><circle cx="26" cy="32" r="14" fill="none" stroke="#d4a84b" stroke-width="3.5"/><circle cx="38" cy="32" r="14" fill="none" stroke="#e8c97a" stroke-width="3.5"/></svg>';
 
 /* ===================== Estado ===================== */
@@ -316,6 +345,7 @@ function showAuth(modo = "entrar", aviso = "") {
       ${modo === "criar" ? `<label class="f"><span>Seu nome</span><input name="nome" autocomplete="given-name" required placeholder="Ex.: Lucas"></label>` : ""}
       <label class="f"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
       <label class="f"><span>Senha</span><input name="senha" type="password" autocomplete="${modo === "criar" ? "new-password" : "current-password"}" required minlength="6"></label>
+      <label class="check-row"><input type="checkbox" name="lembrar" ${lembrar() ? "checked" : ""}> Manter conectado neste aparelho</label>
       <div class="err" id="a-err"></div>
       ${aviso ? `<div class="hint" style="color:var(--gold2)">${esc(aviso)}</div>` : ""}
       <button class="btn gold" type="submit">${modo === "criar" ? "Criar conta" : "Entrar"}</button>
@@ -327,6 +357,7 @@ async function authSubmit(f) {
   const m = f.dataset.m, email = f.email.value.trim(), senha = f.senha.value, errEl = $("#a-err");
   errEl.textContent = "";
   if (!email || senha.length < 6) { errEl.textContent = "Preencha e-mail e uma senha com pelo menos 6 caracteres."; return; }
+  try { localStorage.setItem("lembrar", f.lembrar.checked ? "1" : "0"); } catch (e) {}
   const btn = f.querySelector("[type=submit]"); btn.disabled = true;
   try {
     if (m === "criar") {
@@ -422,7 +453,8 @@ function shell() {
   <header class="top"><div class="wrap">
     <div class="brand"></div>
     <div class="month noprint"><button data-act="mes" data-k="-1" aria-label="Mês anterior">‹</button><strong id="mlabel"></strong><button data-act="mes" data-k="1" aria-label="Próximo mês">›</button></div>
-    <button class="avatar" data-act="go" data-v="mais" data-s="perfil" aria-label="Meu perfil" style="background:${esc(S.perfil.cor)}">${esc((S.perfil.nome || "?")[0].toUpperCase())}</button>
+    <button class="eye" data-act="ocultar" aria-label="Mostrar ou ocultar valores" aria-pressed="${OCULTO}">${OCULTO ? ICON.eyeoff : ICON.eye}</button>
+    <button class="avatar-btn" data-act="go" data-v="mais" data-s="perfil" aria-label="Meu perfil">${avatar(S.perfil, 32)}</button>
   </div></header>
   <main class="wrap" id="view"></main>
   <nav class="nav noprint"><div class="wrap">
@@ -501,6 +533,7 @@ function vInicio() {
       <div class="kpi big"><div class="label">${saldo < 0 ? "Falta" : "Sobra"}</div><div class="v" style="${saldo < 0 ? "color:var(--red)" : ""}">${brl(Math.abs(saldo))}</div></div>
     </div>
     ${linhaHoje ? `<div class="today">${esc(linhaHoje)}</div>` : ""}
+    ${S.casal?.meta_mensal > 0 ? (() => { const meta = C(S.casal.meta_mensal), pct = Math.round(sai / meta * 100), cor = pct > 100 ? "var(--red)" : pct >= 80 ? "var(--gold)" : "var(--green)"; return `<div class="today" style="display:grid;gap:6px"><div class="card-h"><span>Meta de gastos: ${brl(meta)}</span><span class="num" style="color:${cor};font-weight:600">${OCULTO ? "" : pct + "%"}</span></div><span class="meter"><i style="width:${Math.min(100, pct)}%;background:${cor}"></i></span>${pct > 100 ? `<span class="neg">Passou ${brl(sai - meta)} da meta.</span>` : `<span>Ainda cabem ${brl(meta - sai)} este mês.</span>`}</div>`; })() : ""}
   </section>
 
   <section class="card">
@@ -685,17 +718,63 @@ function vCats() {
 }
 
 function vPerfil() {
-  const p = S.perfil, outro = S.perfis.find(x => x.id !== p.id);
-  return `<section class="card"><h2>Meu perfil</h2><form class="form" data-form="perfil" novalidate><div class="g2">
-    <label class="f"><span>Nome</span><input name="nome" value="${esc(p.nome)}" required></label>
-    <label class="f"><span>Minha cor</span><input name="cor" type="color" value="${esc(p.cor)}"></label>
-    <label class="f full"><span>Renda mensal (R$)</span><input name="renda" inputmode="decimal" value="${p.renda_mensal ? fmtIn(C(p.renda_mensal)) : ""}" placeholder="Opcional, só para referência"></label>
-  </div><button class="btn gold" type="submit">Salvar</button></form>
-  <div class="hint">Conta: ${esc(S.session.user.email)}</div></section>
-  <section class="card"><h2>Casal</h2><form class="form" data-form="casal" novalidate><label class="f"><span>Nome do casal</span><input name="nome" value="${esc(S.casal?.nome || "")}"></label><button class="btn" type="submit">Salvar nome</button></form>
-    ${outro ? `<div class="hint">Você e <b style="color:${esc(outro.cor)}">${esc(outro.nome)}</b> compartilham tudo aqui.</div>`
+  const p = S.perfil, outro = S.perfis.find(x => x.id !== p.id), pr = p.prefs || {};
+  const desde = p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : "";
+  return `
+  <section class="card">
+    <div class="hero">${avatar(p, 76)}
+      <div style="min-width:0"><div class="who-name">${esc(p.nome)}</div><div class="hint">${esc(S.session.user.email)}${desde ? " · desde " + esc(desde) : ""}</div>
+      <div class="actions" style="margin-top:8px"><button class="btn sm" data-act="trocarfoto">${p.foto ? "Trocar foto" : "Adicionar foto"}</button>${p.foto ? `<button class="btn sm ghost" data-act="rmfoto">Remover</button>` : ""}<input type="file" id="p-foto" data-act="avatarfile" accept="image/*" hidden></div></div>
+    </div>
+  </section>
+
+  <section class="card"><h2>Sobre você</h2>
+    <form class="form" data-form="perfil" novalidate>
+      <label class="f"><span>Nome</span><input name="nome" value="${esc(p.nome)}" required></label>
+      <div class="f"><span>Sua cor</span><div class="swatches" role="radiogroup" aria-label="Sua cor">${CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c.toLowerCase() === String(p.cor).toLowerCase() ? "checked" : ""} aria-label="Cor ${c}"><span style="background:${c}"></span></label>`).join("")}</div>
+        <div class="hint">Aparece no seu nome, nos seus gastos e nos gráficos.</div></div>
+      <label class="f"><span>Renda mensal (R$)</span><input name="renda" inputmode="decimal" value="${p.renda_mensal ? fmtIn(C(p.renda_mensal)) : ""}" placeholder="Opcional, só para referência"></label>
+      <button class="btn gold" type="submit">Salvar</button>
+    </form>
+  </section>
+
+  <section class="card"><h2>Ao lançar</h2>
+    <div class="hint">O que já vem preenchido quando você toca no +.</div>
+    <form class="form" data-form="prefs" novalidate><div class="g2">
+      <label class="f"><span>Quem</span><select name="quem">${opt("eu", "Eu", pr.quem !== "casal")}${opt("casal", "Casal (juntos)", pr.quem === "casal")}</select></label>
+      <label class="f"><span>Pagamento</span><select name="forma">${FORMAS.map(f => opt(f, f, f === (pr.forma || "Pix"))).join("")}</select></label>
+      <label class="f"><span>Conta</span><select name="conta">${opt("", "Automática", !pr.conta)}${S.contas.filter(c => c.ativa).map(c => opt(c.id, c.nome, pr.conta === c.id)).join("")}</select></label>
+      <label class="f"><span>Cartão</span><select name="cartao">${opt("", "Automático", !pr.cartao)}${S.cartoes.filter(c => c.ativo).map(c => opt(c.id, c.nome, pr.cartao === c.id)).join("")}</select></label>
+    </div><button class="btn" type="submit">Salvar preferências</button></form>
+  </section>
+
+  <section class="card"><h2>Privacidade</h2>
+    <label class="check-row"><input type="checkbox" data-act="ocultarpadrao" ${OCULTO ? "checked" : ""}> Ocultar valores neste aparelho</label>
+    <div class="hint">Útil para abrir o app perto de outras pessoas. O ícone de olho no topo liga e desliga a qualquer momento.</div>
+  </section>
+
+  <section class="card"><h2>Casal</h2>
+    <form class="form" data-form="casal" novalidate><div class="g2">
+      <label class="f"><span>Nome do casal</span><input name="nome" value="${esc(S.casal?.nome || "")}"></label>
+      <label class="f"><span>Meta de gastos por mês (R$)</span><input name="meta" inputmode="decimal" value="${S.casal?.meta_mensal ? fmtIn(C(S.casal.meta_mensal)) : ""}" placeholder="Opcional"></label>
+    </div><button class="btn" type="submit">Salvar</button></form>
+    ${outro ? `<div class="hero" style="gap:10px">${avatar(outro, 36)}<div class="hint">Você e <b style="color:${esc(outro.cor)}">${esc(outro.nome)}</b> compartilham tudo aqui.</div></div>`
       : `<div><div class="label">Código de convite</div><div class="actions" style="align-items:center"><span class="code" id="codigo">${esc(S.casal?.codigo || "")}</span><button class="btn sm" data-act="copiar">Copiar</button></div><div class="hint">Mande este código para a outra pessoa. Ela cria a conta dela e escolhe "Entrar com código".</div></div>`}
   </section>
+
+  <section class="card"><h2>Alterar senha</h2>
+    <form class="form" data-form="senha" novalidate>
+      <input type="email" name="usuario" value="${esc(S.session.user.email)}" autocomplete="username" hidden>
+      <label class="f"><span>Senha atual</span><input name="atual" type="password" autocomplete="current-password"></label>
+      <div class="g2">
+        <label class="f"><span>Nova senha</span><input name="nova" type="password" autocomplete="new-password" minlength="6"></label>
+        <label class="f"><span>Repetir nova senha</span><input name="conf" type="password" autocomplete="new-password" minlength="6"></label>
+      </div>
+      <div class="err" id="s-err"></div>
+      <button class="btn" type="submit">Alterar senha</button>
+    </form>
+  </section>
+
   <section class="card"><button class="btn ghost danger" data-act="sair">Sair desta conta</button></section>`;
 }
 
@@ -746,7 +825,8 @@ function bindTipo(root, pref, onChange) {
 /* ----- lançamento ----- */
 function openTx(t = null, preset = {}, onSaved = null) {
   const ed = !!t;
-  const v = Object.assign({ tipo: "despesa", descricao: "", _c: 0, data: today(), categoria_id: "", pessoa_id: S.perfil.id, forma: "Pix", conta_id: minhaConta(), cartao_id: meuCartao(), obs: "", parcelas: 1 }, t || {}, preset);
+  const pr = S.perfil.prefs || {};
+  const v = Object.assign({ tipo: "despesa", descricao: "", _c: 0, data: today(), categoria_id: "", pessoa_id: pr.quem === "casal" ? null : S.perfil.id, forma: pr.forma || "Pix", conta_id: (pr.conta && S.contas.some(c => c.id === pr.conta)) ? pr.conta : minhaConta(), cartao_id: (pr.cartao && S.cartoes.some(c => c.id === pr.cartao)) ? pr.cartao : meuCartao(), obs: "", parcelas: 1 }, t || {}, preset);
   if (!v.categoria_id || !S.cats.some(c => c.id === v.categoria_id && c.tipo === v.tipo)) v.categoria_id = S.cats.find(c => c.tipo === v.tipo)?.id || "";
   CUR = { t, tipo: v.tipo, onSaved, comprovante: null, origem: preset.origem || "site" };
   const grp = ed && t.grupo;
@@ -938,6 +1018,9 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  ocultar: () => { OCULTO = !OCULTO; try { localStorage.setItem("ocultar", OCULTO ? "1" : "0"); } catch (e) {} shell(); render(); },
+  trocarfoto: () => $("#p-foto").click(),
+  rmfoto: async () => { const { error } = await sb.from("perfis").update({ foto: null }).eq("id", S.perfil.id); if (error) return toast(precisaSQL(error) || error.message, true); await LOAD.perfis(); shell(); render(); toast("Foto removida."); },
   copiar: async () => { const c = S.casal?.codigo || ""; try { await navigator.clipboard.writeText(c); toast("Código copiado."); } catch (e) { toast("Código: " + c); } },
   vercomp: async a => {
     const w = window.open("", "_blank");
@@ -994,6 +1077,28 @@ const ACT = {
     });
   },
 };
+function precisaSQL(error) {
+  return /column|schema cache/i.test(error?.message || "") ? "Falta rodar a atualização do banco (atualizacao-perfil.sql) no SQL Editor do Supabase." : "";
+}
+function fotoQuadrada(file, size = 256) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const s = Math.min(img.naturalWidth, img.naturalHeight), cv = document.createElement("canvas");
+      cv.width = cv.height = size;
+      cv.getContext("2d").drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url); res(cv.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("decode")); };
+    img.src = url;
+  });
+}
+async function salvarFoto(file) {
+  let foto; try { foto = await fotoQuadrada(file); } catch (e) { return toast("Não consegui abrir essa imagem. Tente outra.", true); }
+  const { error } = await sb.from("perfis").update({ foto }).eq("id", S.perfil.id);
+  if (error) return toast(precisaSQL(error) || error.message, true);
+  await LOAD.perfis(); shell(); render(); toast("Foto atualizada.");
+}
 async function delTx(fn) {
   const { error } = await fn(sb.from("transacoes").delete());
   if (error) return toast("Não excluiu: " + error.message, true);
@@ -1009,6 +1114,8 @@ document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
   const id = a.dataset.id;
   if (a.dataset.act === "filtcat") { S.filt.cat = a.value; render(); return; }
+  if (a.dataset.act === "ocultarpadrao") { OCULTO = a.checked; try { localStorage.setItem("ocultar", OCULTO ? "1" : "0"); } catch (e) {} shell(); render(); return; }
+  if (a.dataset.act === "avatarfile") { const f = a.files[0]; a.value = ""; if (f) salvarFoto(f); return; }
   if (a.dataset.act === "pego") await sb.from("compras").update({ pego: a.checked }).eq("id", id);
   if (a.dataset.act === "qtd") { const q = parseFloat(String(a.value).replace(",", ".")); await sb.from("compras").update({ qtd: isFinite(q) && q > 0 ? q : 1 }).eq("id", id); }
   if (a.dataset.act === "preco") { const p = parseMoney(a.value); await sb.from("compras").update({ preco: R(p > 0 ? p : 0) }).eq("id", id); }
@@ -1039,13 +1146,37 @@ const FORM = {
     if (error) return toast(error.message, true); await LOAD.categorias(); render(); toast("Categoria adicionada.");
   },
   perfil: async f => {
-    const renda = parseMoney(f.renda.value);
-    const { error } = await sb.from("perfis").update({ nome: f.nome.value.trim() || S.perfil.nome, cor: f.cor.value, renda_mensal: isFinite(renda) ? R(renda) : null }).eq("id", S.perfil.id);
+    const renda = parseMoney(f.renda.value), cor = f.querySelector("[name=cor]:checked")?.value || S.perfil.cor;
+    const { error } = await sb.from("perfis").update({ nome: f.nome.value.trim() || S.perfil.nome, cor, renda_mensal: isFinite(renda) ? R(renda) : null }).eq("id", S.perfil.id);
     if (error) return toast(error.message, true); await LOAD.perfis(); shell(); render(); toast("Perfil salvo.");
   },
+  prefs: async f => {
+    const prefs = { ...(S.perfil.prefs || {}), quem: f.quem.value, forma: f.forma.value, conta: f.conta.value || null, cartao: f.cartao.value || null };
+    const { error } = await sb.from("perfis").update({ prefs }).eq("id", S.perfil.id);
+    if (error) return toast(precisaSQL(error) || error.message, true); await LOAD.perfis(); render(); toast("Preferências salvas.");
+  },
   casal: async f => {
-    const { error } = await sb.from("casais").update({ nome: f.nome.value.trim() || "Nosso casal" }).eq("id", S.perfil.casal_id);
-    if (error) return toast(error.message, true); const { data } = await sb.from("casais").select("*").maybeSingle(); S.casal = data; render(); toast("Nome salvo.");
+    const meta = parseMoney(f.meta.value);
+    const up = { nome: f.nome.value.trim() || "Nosso casal" };
+    if (f.meta.value.trim() || S.casal?.meta_mensal != null) up.meta_mensal = isFinite(meta) && meta > 0 ? R(meta) : null;
+    const { error } = await sb.from("casais").update(up).eq("id", S.perfil.casal_id);
+    if (error) return toast(precisaSQL(error) || error.message, true);
+    const { data } = await sb.from("casais").select("*").maybeSingle(); S.casal = data; render(); toast("Salvo.");
+  },
+  senha: async f => {
+    const err = $("#s-err"); err.textContent = ""; err.style.color = "";
+    const atual = f.atual.value, nova = f.nova.value, conf = f.conf.value;
+    if (!atual) { err.textContent = "Digite sua senha atual."; return; }
+    if (nova.length < 6) { err.textContent = "A nova senha precisa ter pelo menos 6 caracteres."; return; }
+    if (nova !== conf) { err.textContent = "As duas senhas novas não são iguais."; return; }
+    if (nova === atual) { err.textContent = "A nova senha é igual à atual."; return; }
+    const btn = f.querySelector("[type=submit]"); btn.disabled = true;
+    const { error: e1 } = await sb.auth.signInWithPassword({ email: S.session.user.email, password: atual });
+    if (e1) { btn.disabled = false; err.textContent = "Senha atual incorreta."; return; }
+    const { error } = await sb.auth.updateUser({ password: nova });
+    btn.disabled = false;
+    if (error) { err.textContent = /different from the old/i.test(error.message) ? "A nova senha é igual à atual." : error.message; return; }
+    f.reset(); err.style.color = "var(--gold2)"; err.textContent = "Senha alterada.";
   },
 };
 document.addEventListener("submit", e => {
