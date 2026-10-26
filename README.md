@@ -13,6 +13,7 @@ Controle financeiro do casal: lançamentos, parcelas, fixos, entradas, contas, c
 3. Supabase → Edge Functions → Deploy new function → nome `ler-comprovante` → colar o código → Deploy.
 4. Supabase → Edge Functions → Secrets → `ANTHROPIC_API_KEY` = sua chave.
 5. GitHub → Settings → Pages → Branch `main` / root.
+6. Notificações: rodar `supabase/atualizacao-notificacoes.sql`, publicar a função `notificar` e criar as secrets `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`.
 
 ## Publicar uma mudança
 Rode `./tools/versao.sh` antes do commit. Ele troca o número da versão no `index.html` e no `version.json`, e é isso que faz o app instalado na tela inicial se atualizar sozinho.
