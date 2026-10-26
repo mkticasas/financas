@@ -45,7 +45,7 @@ h3{font-size:.95rem;font-weight:600}
 /* topo */
 .top{position:sticky;top:0;z-index:20;background:rgba(15,14,12,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
 .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:12px}
-.brand{font-family:var(--serif);font-size:1.15rem;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+.brand{font-family:var(--serif);font-size:1.45rem;letter-spacing:.02em;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
 .month{display:flex;align-items:center;gap:4px;flex:none}
 .month button{background:none;border:1px solid var(--line);border-radius:10px;width:32px;height:32px;color:var(--fg2);font-size:1.1rem;line-height:1;padding:0}
 .month strong{font-weight:600;font-size:.88rem;min-width:4.8rem;text-align:center;text-transform:capitalize;white-space:nowrap}
@@ -420,7 +420,7 @@ document.addEventListener("focusout", () => setTimeout(() => { if (dirty && !(do
 function shell() {
   $("#app").innerHTML = `
   <header class="top"><div class="wrap">
-    <div class="brand">${esc(S.casal?.nome || "Finanças a Dois")}</div>
+    <div class="brand"></div>
     <div class="month noprint"><button data-act="mes" data-k="-1" aria-label="Mês anterior">‹</button><strong id="mlabel"></strong><button data-act="mes" data-k="1" aria-label="Próximo mês">›</button></div>
     <button class="avatar" data-act="go" data-v="mais" data-s="perfil" aria-label="Meu perfil" style="background:${esc(S.perfil.cor)}">${esc((S.perfil.nome || "?")[0].toUpperCase())}</button>
   </div></header>
@@ -436,7 +436,11 @@ function shell() {
 function render() {
   if (!$("#view")) return;
   $("#mlabel").textContent = mesNome(S.mes, { month: "short" }).replace(".", "") + " " + S.mes.slice(0, 4);
-  $(".brand").textContent = S.casal?.nome || "Finanças a Dois";
+  // iniciais do casal, quem está logado primeiro (L&G para o Lucas)
+  const ordem = [S.perfil, ...S.perfis.filter(p => p.id !== S.perfil.id)];
+  $(".brand").textContent = ordem.map(p => (p?.nome || "").trim()[0]?.toUpperCase()).filter(Boolean).join("&") || "Finanças";
+  $(".brand").title = S.casal?.nome || "";
+  document.title = S.casal?.nome || "Finanças a Dois";
   document.querySelectorAll(".nav [data-v]").forEach(b => b.dataset.v === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   const V = { inicio: vInicio, lanc: vLanc, compras: vCompras, mais: vMais }[S.view] || vInicio;
   $("#view").innerHTML = V();
