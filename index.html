@@ -167,6 +167,11 @@ button.row:hover{background:var(--s2)}
 .fat{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:.86rem;color:var(--fg2);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 /* Contas e Cartões: a lista vem antes do formulário de cadastro */
 main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{order:2}
+.pay-chip{display:block;margin-top:4px;font-size:.7rem;font-weight:700;color:#1a1405;background:var(--gold);border-radius:999px;padding:2px 9px;text-align:center}
+.row.ag2 .amt{display:flex;flex-direction:column;align-items:flex-end}
+.row.ag2 .dt.neg{font-weight:700;font-size:.72rem}
+.pill.due{background:rgba(212,168,75,.15);color:var(--gold2)}
+.pill.late{background:rgba(224,92,92,.15);color:var(--red)}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -299,7 +304,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1453";
+const APP_VERSION = "2026.10.26-1456";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -401,9 +406,24 @@ const pessoaCor = id => pessoa(id)?.cor || "var(--gold)";
 const cat = id => S.cats.find(c => c.id === id);
 const sinal = t => t.tipo === "receita" ? t._c : t.tipo === "transferencia" ? 0 : -t._c;
 
+const ehCred = t => t.forma === "Crédito" && !!t.cartao_id;
+// conta fora do cartão que ainda não foi paga (fixos viram reais quando pagos)
+const aPagar = t => t.tipo === "despesa" && !ehCred(t) && (t.virtual ? true : t.pago === false || (t.pago == null && t.data > today()));
+// salva lançamentos; se o banco ainda não tem as colunas novas, salva sem elas e avisa
+let SEM_PAGO = false;
+async function gravarTx(op, dados, id) {
+  const tira = d => { const x = { ...d }; delete x.pago; delete x.rec_id; delete x.referencia; return x; };
+  const run = d => op === "insert" ? sb.from("transacoes").insert(d) : sb.from("transacoes").update(d).eq("id", id);
+  let r = await run(SEM_PAGO ? (Array.isArray(dados) ? dados.map(tira) : tira(dados)) : dados);
+  if (r.error && /pago|rec_id|referencia|schema cache/i.test(r.error.message)) {
+    SEM_PAGO = true; toast("Falta rodar o atualizacao-contas-a-pagar.sql no Supabase. Salvei sem a parte de pagamento.", true);
+    r = await run(Array.isArray(dados) ? dados.map(tira) : tira(dados));
+  }
+  return r;
+}
 function recMes(mk) {
   const [y, m] = mk.split("-").map(Number); const ld = lastDay(y, m);
-  return S.rec.filter(r => r.inicio.slice(0, 7) <= mk && (!r.fim || mk <= r.fim.slice(0, 7)))
+  return S.rec.filter(r => r.inicio.slice(0, 7) <= mk && (!r.fim || mk <= r.fim.slice(0, 7)) && !S.tx.some(t => t.rec_id === r.id && t.referencia === mk))
     .map(r => ({ ...r, id: "r:" + r.id + ":" + mk, recId: r.id, virtual: true, data: mk + "-" + pad(Math.min(r.dia, ld)) }));
 }
 const lanc = mk => S.tx.filter(t => t.data.slice(0, 7) === mk).concat(recMes(mk));
@@ -412,12 +432,12 @@ const soma = (arr, tipo) => arr.filter(t => !tipo || t.tipo === tipo).reduce((s,
 function saldoConta(c) {
   let s = c._c; const from = c.saldo_data, hj = today();
   S.tx.forEach(t => {
-    if (t.data < from || t.data > hj) return;
+    if (t.data < from || t.data > hj || t.pago === false) return;
     if (t.tipo === "transferencia") { if (t.conta_id === c.id) s -= t._c; if (t.conta_destino_id === c.id) s += t._c; }
     else if (t.conta_id === c.id) s += sinal(t);
   });
   let mk = from.slice(0, 7), n = 0; const end = hj.slice(0, 7);
-  while (mk <= end && n++ < 300) { recMes(mk).forEach(v => { if (v.conta_id === c.id && v.data >= from && v.data <= hj) s += sinal(v); }); mk = shiftMk(mk, 1); }
+  while (mk <= end && n++ < 300) { recMes(mk).forEach(v => { if (v.conta_id === c.id && v.data >= from && v.data <= hj && v.tipo === "receita") s += sinal(v); }); mk = shiftMk(mk, 1); }
   return s;
 }
 /* ----- faturas e agenda de pagamentos ----- */
@@ -456,8 +476,11 @@ function agenda(ate) {
   const credOk = t => t.forma === "Crédito" && t.cartao_id && S.cartoes.some(c => c.id === t.cartao_id && cartaoOk(c));
   let mk = hj.slice(0, 7); const fimMk = ate.slice(0, 7);
   const L = []; while (mk <= fimMk) { L.push(...lanc(mk)); mk = shiftMk(mk, 1); }
-  L.filter(t => t.data > hj && t.data <= ate && t.tipo !== "transferencia" && !credOk(t)).forEach(t => ev.push({ data: t.data, tipo: t.tipo, sai: t.tipo === "despesa" ? t._c : 0, entra: t.tipo === "receita" ? t._c : 0, t, desc: t.descricao }));
-  ev.sort((a, b) => a.data.localeCompare(b.data) || (b.entra || 0) - (a.entra || 0));
+  const ini = hj.slice(0, 7) + "-01";
+  const atrasadosAntigos = S.tx.filter(t => t.pago === false && t.data < ini && t.tipo === "despesa" && !ehCred(t));
+  L.concat(atrasadosAntigos).filter(t => t.data <= ate && t.tipo !== "transferencia" && !credOk(t) && (t.tipo === "receita" ? t.data > hj : aPagar(t)))
+    .forEach(t => ev.push({ data: t.data, tipo: t.tipo, sai: t.tipo === "despesa" ? t._c : 0, entra: t.tipo === "receita" ? t._c : 0, t, desc: t.descricao, atrasado: t.tipo === "despesa" && t.data < hj, pagavel: t.tipo === "despesa" }));
+  ev.sort((a, b) => (b.atrasado ? 1 : 0) - (a.atrasado ? 1 : 0) || a.data.localeCompare(b.data) || (b.entra || 0) - (a.entra || 0));
   let saldo = saldoTotal(), min = saldo, minData = hj;
   ev.forEach(e => { saldo += (e.entra || 0) - (e.sai || 0); e.saldo = saldo; if (saldo < min) { min = saldo; minData = e.data; } });
   return { ev, inicio: saldoTotal(), fim: saldo, min, minData, ate };
@@ -740,8 +763,11 @@ function vAgenda() {
     : `<span class="dot ok"></span><span>Cobre tudo · sobra <b>${brl(A.fim)}</b> em ${dm(fimProx)}</span>`;
   const lista = AGENDA_TUDO ? A.ev : A.ev.slice(0, 4);
   const linha = e => {
-    const act = e.tipo === "fatura" ? `data-act="fatopts" data-card="${e.f.c.id}" data-venc="${e.f.venc}"` : `data-act="${e.t.virtual ? "editrec" : "edittx"}" data-id="${esc(e.t.virtual ? e.t.recId : e.t.id)}"`;
-    return `<button class="row ag2" ${act}><span class="dt num">${dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : "− "}${brl(e.entra || e.sai)}</span></button>`;
+    const act = e.tipo === "fatura" ? `data-act="fatopts" data-card="${e.f.c.id}" data-venc="${e.f.venc}"`
+      : e.pagavel ? (e.t.virtual ? `data-act="pagarconta" data-rec="${esc(e.t.recId)}" data-mk="${e.data.slice(0, 7)}"` : `data-act="pagarconta" data-id="${esc(e.t.id)}"`)
+      : `data-act="${e.t.virtual ? "editrec" : "edittx"}" data-id="${esc(e.t.virtual ? e.t.recId : e.t.id)}"`;
+    const chip = e.tipo === "fatura" || e.pagavel ? `<span class="pay-chip">Pagar</span>` : "";
+    return `<button class="row ag2" ${act}><span class="dt num ${e.atrasado ? "neg" : ""}">${e.atrasado ? "atrasado" : dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : "− "}${brl(e.entra || e.sai)}${chip}</span></button>`;
   };
   return `<section class="card">
     <div class="card-h"><h2>Próximos pagamentos</h2>${A.ev.length > 4 ? `<button class="btn ghost sm" data-act="agendatudo">${AGENDA_TUDO ? "Menos" : "Ver todos"}</button>` : ""}</div>
@@ -762,7 +788,7 @@ function rowTx(t, showDate = false) {
   const meio = t.forma === "Crédito" ? (S.cartoes.find(x => x.id === t.cartao_id)?.nome || "") : (S.contas.find(x => x.id === t.conta_id)?.nome || "");
   return `<button class="row" data-act="${t.virtual ? "editrec" : "edittx"}" data-id="${esc(t.virtual ? t.recId : t.id)}">
     <span class="tag" style="background:${esc(c?.cor || "var(--fg3)")}"></span>
-    <span style="min-width:0"><b>${esc(t.descricao)}${t.parcelas > 1 ? `<span class="pill">${t.parcela}/${t.parcelas}</span>` : ""}${t.virtual ? `<span class="pill p">${t.tipo === "receita" ? "todo mês" : "fixo"}</span>` : ""}</b>
+    <span style="min-width:0"><b>${esc(t.descricao)}${t.parcelas > 1 ? `<span class="pill">${t.parcela}/${t.parcelas}</span>` : ""}${t.virtual ? `<span class="pill p">${t.tipo === "receita" ? "todo mês" : "fixo"}</span>` : ""}${aPagar(t) ? `<span class="pill ${t.data < today() ? "late" : "due"}">${t.data < today() ? "atrasado" : "a pagar"}</span>` : ""}</b>
     <small>${showDate ? esc(diaNome(t.data)) + " · " : ""}${esc(c?.nome || "Sem categoria")} · ${esc(t.forma || "")}${meio ? " " + esc(meio) : ""} · <span class="who" style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span></small></span>
     <span class="amt ${t.tipo === "receita" ? "pos" : ""}">${t.tipo === "receita" ? "+" : "−"} ${brl(t._c)}</span>
   </button>`;
@@ -1168,6 +1194,7 @@ function openTx(t = null, preset = {}, onSaved = null) {
       ${ed ? "" : `<label class="f" id="t-wparc"><span>Parcelas</span><select id="t-parc">${Array.from({ length: 24 }, (_, i) => opt(i + 1, i ? `${i + 1}x` : "À vista", i + 1 === (v.parcelas || 1))).join("")}</select></label>`}
     </div>
     <div class="hint" id="t-prev"></div>
+    <label class="check-row" id="t-wpago"><input type="checkbox" id="t-pago" ${(ed ? !(t.pago === false || (t.pago == null && t.data > today())) : v.data <= today()) ? "checked" : ""}> Já está pago (sai do saldo da conta)</label>
     <label class="f"><span>Observação</span><input id="t-obs" value="${esc(v.obs || "")}" placeholder="Opcional"></label>
     ${grp ? `<div class="hint">Parcela ${t.parcela} de ${t.parcelas}. Descrição, categoria, pessoa e cartão mudam em todas as parcelas; valor e data só nesta.</div>` : ""}
     ${ed && t.comprovante ? `<button type="button" class="btn ghost sm" data-act="vercomp" data-path="${esc(t.comprovante)}">Ver comprovante</button>` : ""}
@@ -1179,6 +1206,7 @@ function openTx(t = null, preset = {}, onSaved = null) {
     bindTipo(root, "t", () => modoTx(root));
     bindPagamento(root, "t");
     $("#t-forma", root).addEventListener("change", () => modoTx(root));
+    if (!ed) $("#t-data", root).addEventListener("change", e => { $("#t-pago", root).checked = e.target.value <= today(); });
     modoTx(root);
     ["t-valor", "t-data", "t-parc"].forEach(id => $("#" + id, root)?.addEventListener("input", () => prevParc(root, "t")));
     $("#t-file", root)?.addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) lerFoto(f, root); });
@@ -1191,6 +1219,7 @@ function modoTx(root) {
   if (!tr) { $("#w-categoria", root).hidden = false; $("#w-forma", root).hidden = false; $("#t-wcartao", root).hidden = !cred; const wp = $("#t-wparc", root); if (wp) wp.hidden = !cred; $("#t-prev", root).hidden = false; }
   $("#t-wconta", root).hidden = tr ? false : cred;
   $("#t-wdest", root).hidden = !tr;
+  $("#t-wpago", root).hidden = tr || CUR.tipo !== "despesa" || cred;
   $("#t-trhint", root).hidden = !tr;
   const ai = $(".ai", root); if (ai) ai.hidden = tr;
   $("#t-lconta", root).textContent = tr ? "Da conta" : "Conta";
@@ -1219,10 +1248,11 @@ async function saveTx(root) {
   if (!data) { err.textContent = "Escolha a data."; return; }
   const forma = $("#t-forma", root).value, cred = forma === "Crédito";
   const base = { tipo: CUR.tipo, descricao: desc, categoria_id: $("#t-cat", root).value || null, pessoa_id: $("#t-pessoa", root).value || null, forma, conta_id: cred ? null : ($("#t-conta", root).value || null), cartao_id: cred ? ($("#t-cartao", root).value || null) : null, obs: $("#t-obs", root).value.trim() || null };
+  if (CUR.tipo === "despesa" && !cred) base.pago = $("#t-pago", root).checked;
   const btn = root.querySelector("[type=submit]"); btn.disabled = true;
   let error;
   if (CUR.t) {
-    ({ error } = await sb.from("transacoes").update({ ...base, valor: R(c), data }).eq("id", CUR.t.id));
+    ({ error } = await gravarTx("update", { ...base, valor: R(c), data }, CUR.t.id));
     if (!error && CUR.t.grupo) ({ error } = await sb.from("transacoes").update({ descricao: base.descricao, categoria_id: base.categoria_id, pessoa_id: base.pessoa_id, cartao_id: base.cartao_id }).eq("grupo", CUR.t.grupo));
   } else {
     const n = cred ? Number($("#t-parc", root).value) || 1 : 1, rows = [];
@@ -1232,7 +1262,7 @@ async function saveTx(root) {
       const g = crypto.randomUUID(), each = Math.floor(c / n), rest = c - each * n;
       for (let k = 0; k < n; k++) rows.push({ ...base, ...(k === 0 ? extra : { origem: CUR.origem }), valor: R(each + (k === 0 ? rest : 0)), data: addMonths(data, k), parcela: k + 1, parcelas: n, grupo: g, valor_total: R(c) });
     }
-    ({ error } = await sb.from("transacoes").insert(rows));
+    ({ error } = await gravarTx("insert", rows));
   }
   btn.disabled = false;
   if (error) { err.textContent = "Não salvou: " + error.message; return; }
@@ -1388,6 +1418,31 @@ const ACT = {
         const { error } = await sb.from("cartoes").update(up).eq("id", c.id);
         if (error) { $("#ec-err", root).textContent = error.message; return; }
         closeSheet(); await LOAD.cartoes(); render(); toast("Cartão salvo.");
+      });
+    });
+  },
+  pagarconta: a => {
+    let t, r = null, mk = a.dataset.mk;
+    if (a.dataset.id) t = S.tx.find(x => x.id === a.dataset.id);
+    else { r = S.rec.find(x => x.id === a.dataset.rec); t = r && recMes(mk).find(v => v.recId === r.id); }
+    if (!t) return;
+    const conta = t.conta_id || minhaConta();
+    openSheet("Pagar conta", `<form class="form" id="pcf" novalidate>
+      <div><b style="font-size:1.1rem">${esc(t.descricao)}</b>${t.parcelas > 1 ? ` <span class="pill">${t.parcela}/${t.parcelas}</span>` : ""}${r ? ` <span class="pill p">fixo</span>` : ""}<div class="hint">Vence ${dm(t.data)}${t.data < today() ? ' · <span class="neg">atrasado</span>' : ""}</div></div>
+      <label class="f"><span>Valor pago</span><input id="pc-v" class="big num money" inputmode="numeric" value="${fmtMoney(t._c)}"></label>
+      <div class="g2"><label class="f"><span>Data do pagamento</span><input id="pc-d" type="date" value="${today()}"></label>
+      <label class="f"><span>Saiu da conta</span><select id="pc-c">${contaOpts(conta)}</select></label></div>
+      <div class="err" id="pc-err"></div>
+      <div class="actions"><button class="btn gold" type="submit">Confirmar pagamento</button>${r ? "" : `<button type="button" class="btn ghost" data-act="edittx" data-id="${esc(t.id)}">Editar</button>`}</div></form>`, root => {
+      $("#pcf", root).addEventListener("submit", async e => {
+        e.preventDefault(); const v = parseMoney($("#pc-v", root).value), err = $("#pc-err", root);
+        if (!(v > 0)) { err.textContent = "Coloque o valor pago."; return; }
+        const d = $("#pc-d", root).value || today(), contaId = $("#pc-c", root).value || null;
+        const res = r
+          ? await gravarTx("insert", { tipo: "despesa", descricao: t.descricao, valor: R(v), data: d, categoria_id: t.categoria_id, pessoa_id: t.pessoa_id, forma: t.forma, conta_id: contaId, rec_id: r.id, referencia: mk, pago: true })
+          : await gravarTx("update", { pago: true, valor: R(v), data: d, conta_id: contaId }, t.id);
+        if (res.error) { err.textContent = "Não salvou: " + res.error.message; return; }
+        closeSheet(); await LOAD.transacoes(); render(); toast("Pagamento registrado.");
       });
     });
   },
