@@ -172,6 +172,17 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 .row.ag2 .dt.neg{font-weight:700;font-size:.72rem}
 .pill.due{background:rgba(212,168,75,.15);color:var(--gold2)}
 .pill.late{background:rgba(224,92,92,.15);color:var(--red)}
+.view-head{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.view-v{font-family:var(--serif);font-size:2.4rem;line-height:1.1}
+.view-d{font-size:1.1rem;font-weight:600}
+.dets{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.det{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.det span:first-child{color:var(--fg3)}
+.det b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.dotc{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:0}
+.obs{margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.obs p{margin:4px 0 0;color:var(--fg2);font-size:.92rem}
+.sheet .actions .btn{flex:1}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -304,7 +315,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1456";
+const APP_VERSION = "2026.10.26-1845";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -765,7 +776,7 @@ function vAgenda() {
   const linha = e => {
     const act = e.tipo === "fatura" ? `data-act="fatopts" data-card="${e.f.c.id}" data-venc="${e.f.venc}"`
       : e.pagavel ? (e.t.virtual ? `data-act="pagarconta" data-rec="${esc(e.t.recId)}" data-mk="${e.data.slice(0, 7)}"` : `data-act="pagarconta" data-id="${esc(e.t.id)}"`)
-      : `data-act="${e.t.virtual ? "editrec" : "edittx"}" data-id="${esc(e.t.virtual ? e.t.recId : e.t.id)}"`;
+      : (e.t.virtual ? `data-act="vertx" data-rec="${esc(e.t.recId)}" data-mk="${e.data.slice(0, 7)}"` : `data-act="vertx" data-id="${esc(e.t.id)}"`);
     const chip = e.tipo === "fatura" || e.pagavel ? `<span class="pay-chip">Pagar</span>` : "";
     return `<button class="row ag2" ${act}><span class="dt num ${e.atrasado ? "neg" : ""}">${e.atrasado ? "atrasado" : dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : "− "}${brl(e.entra || e.sai)}${chip}</span></button>`;
   };
@@ -780,13 +791,13 @@ function vAgenda() {
 function rowTx(t, showDate = false) {
   if (t.tipo === "transferencia") {
     const de = S.contas.find(x => x.id === t.conta_id)?.nome || "?", para = t.cartao_id ? "fatura " + (S.cartoes.find(x => x.id === t.cartao_id)?.nome || "cartão") : (S.contas.find(x => x.id === t.conta_destino_id)?.nome || "?");
-    return `<button class="row" data-act="edittx" data-id="${esc(t.id)}"><span class="tag" style="background:var(--gold)"></span>
+    return `<button class="row" data-act="vertx" data-id="${esc(t.id)}"><span class="tag" style="background:var(--gold)"></span>
     <span style="min-width:0"><b>${esc(t.descricao)}<span class="pill">transferência</span></b><small>${showDate ? esc(diaNome(t.data)) + " · " : ""}${esc(de)} → ${esc(para)} · <span class="who" style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span></small></span>
     <span class="amt muted">⇄ ${brl(t._c)}</span></button>`;
   }
   const c = cat(t.categoria_id);
   const meio = t.forma === "Crédito" ? (S.cartoes.find(x => x.id === t.cartao_id)?.nome || "") : (S.contas.find(x => x.id === t.conta_id)?.nome || "");
-  return `<button class="row" data-act="${t.virtual ? "editrec" : "edittx"}" data-id="${esc(t.virtual ? t.recId : t.id)}">
+  return `<button class="row" data-act="vertx" ${t.virtual ? `data-rec="${esc(t.recId)}" data-mk="${t.data.slice(0, 7)}"` : `data-id="${esc(t.id)}"`}>
     <span class="tag" style="background:${esc(c?.cor || "var(--fg3)")}"></span>
     <span style="min-width:0"><b>${esc(t.descricao)}${t.parcelas > 1 ? `<span class="pill">${t.parcela}/${t.parcelas}</span>` : ""}${t.virtual ? `<span class="pill p">${t.tipo === "receita" ? "todo mês" : "fixo"}</span>` : ""}${aPagar(t) ? `<span class="pill ${t.data < today() ? "late" : "due"}">${t.data < today() ? "atrasado" : "a pagar"}</span>` : ""}</b>
     <small>${showDate ? esc(diaNome(t.data)) + " · " : ""}${esc(c?.nome || "Sem categoria")} · ${esc(t.forma || "")}${meio ? " " + esc(meio) : ""} · <span class="who" style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span></small></span>
@@ -862,7 +873,7 @@ function vInicio() {
   </section>
 
   ${parcs.length ? `<section class="card"><div class="card-h"><h2>Parcelamentos ativos</h2><span class="muted num">${brl(parcs.reduce((s, p) => s + p.restante, 0))} a pagar</span></div>
-    <div class="rows">${parcs.map(p => `<button class="row" data-act="edittx" data-id="${esc(p.t.id)}" style="grid-template-columns:minmax(0,1fr) auto"><span style="min-width:0;display:flex;flex-direction:column;gap:6px"><b>${esc(p.desc)} <span class="pill">${p.pagas}/${p.total}</span></b><span class="meter"><i style="width:${p.pagas / p.total * 100}%"></i></span><small>${brl(p.parc)} por mês · termina em ${esc(mesNome(p.fim.slice(0, 7), { month: "short", year: "numeric" }))}</small></span><span class="amt">${brl(p.restante)}</span></button>`).join("")}</div></section>` : ""}
+    <div class="rows">${parcs.map(p => `<button class="row" data-act="vertx" data-id="${esc(p.t.id)}" style="grid-template-columns:minmax(0,1fr) auto"><span style="min-width:0;display:flex;flex-direction:column;gap:6px"><b>${esc(p.desc)} <span class="pill">${p.pagas}/${p.total}</span></b><span class="meter"><i style="width:${p.pagas / p.total * 100}%"></i></span><small>${brl(p.parc)} por mês · termina em ${esc(mesNome(p.fim.slice(0, 7), { month: "short", year: "numeric" }))}</small></span><span class="amt">${brl(p.restante)}</span></button>`).join("")}</div></section>` : ""}
 
   <section class="card wide">
     <div class="card-h"><h2>Últimos lançamentos</h2><button class="btn ghost sm" data-act="go" data-v="lanc">Ver todos</button></div>
@@ -1169,6 +1180,46 @@ function openEscolha() {
   </div>`);
 }
 
+/* ----- ficha do lançamento (só visualizar) ----- */
+function openView(t) {
+  const tr = t.tipo === "transferencia", c = cat(t.categoria_id);
+  const conta = S.contas.find(x => x.id === t.conta_id), dest = S.contas.find(x => x.id === t.conta_destino_id), cartao = S.cartoes.find(x => x.id === t.cartao_id);
+  const autor = S.perfis.find(p => p.id === t.criado_por);
+  const quando = new Date(t.data + "T12:00").toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const it = (l, v) => v ? `<div class="det"><span>${l}</span><b>${v}</b></div>` : "";
+  let status = "";
+  if (t.tipo === "despesa") status = ehCred(t) ? "No cartão, entra na fatura" : aPagar(t) ? (t.data < today() ? '<span class="neg">Atrasado</span>' : '<span style="color:var(--gold2)">A pagar</span>') : '<span class="pos">Pago</span>';
+  let parc = "";
+  if (t.parcelas > 1) {
+    const g = S.tx.filter(x => x.grupo === t.grupo), rest = g.filter(x => x.data > today());
+    parc = it("Parcela", `${t.parcela} de ${t.parcelas}`) + it("Valor total", brl(C(t.valor_total) || g.reduce((s, x) => s + x._c, 0))) + (rest.length ? it("Ainda faltam", `${rest.length} · ${brl(rest.reduce((s, x) => s + x._c, 0))}`) : "");
+  }
+  const sinalTxt = t.tipo === "receita" ? "+ " : tr ? "⇄ " : "− ";
+  const cor = t.tipo === "receita" ? "var(--green)" : tr ? "var(--gold2)" : "var(--fg)";
+  const pagarBtn = aPagar(t) ? (t.virtual ? `<button class="btn gold" data-act="pagarconta" data-rec="${esc(t.recId)}" data-mk="${t.data.slice(0, 7)}">Pagar</button>` : `<button class="btn gold" data-act="pagarconta" data-id="${esc(t.id)}">Pagar</button>`) : "";
+  const editBtn = t.virtual ? `<button class="btn" data-act="editrec" data-id="${esc(t.recId)}">Editar fixo</button>` : `<button class="btn" data-act="edittx" data-id="${esc(t.id)}">Editar</button>`;
+  openSheet(tr ? "Transferência" : t.tipo === "receita" ? "Entrada" : "Despesa", `
+    <div class="view-head">
+      <div class="view-v num" style="color:${cor}">${sinalTxt}${brl(t._c)}</div>
+      <div class="view-d">${esc(t.descricao)}${t.virtual ? ` <span class="pill p">${t.tipo === "receita" ? "todo mês" : "fixo"}</span>` : ""}${t.origem === "foto" ? ' <span class="pill">lido por foto</span>' : ""}</div>
+      <div class="hint">${esc(quando.charAt(0).toUpperCase() + quando.slice(1))}</div>
+    </div>
+    <div class="dets">
+      ${status ? it("Situação", status) : ""}
+      ${tr ? it("De", esc(conta?.nome || "—")) + it("Para", esc(t.cartao_id ? "Fatura " + (cartao?.nome || "") : dest?.nome || "—")) : ""}
+      ${!tr ? it("Categoria", c ? `<span class="dotc" style="background:${esc(c.cor)}"></span>${esc(c.nome)}` : "Sem categoria") : ""}
+      ${it("Quem", `<span style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span>`)}
+      ${!tr ? it("Pagamento", esc(t.forma || "—")) : ""}
+      ${!tr && cartao ? it("Cartão", esc(cartao.nome + (cartao.final ? " ··" + cartao.final : ""))) : ""}
+      ${!tr && conta ? it("Conta", esc(conta.nome)) : ""}
+      ${parc}
+      ${autor && !t.virtual ? it("Lançado por", esc(autor.nome) + (t.created_at ? " em " + new Date(t.created_at).toLocaleDateString("pt-BR") : "")) : ""}
+    </div>
+    ${t.obs ? `<div class="obs"><span class="label">Observação</span><p>${esc(t.obs)}</p></div>` : ""}
+    ${t.comprovante ? `<button class="btn ghost sm" data-act="vercomp" data-path="${esc(t.comprovante)}" style="align-self:flex-start">Ver comprovante</button>` : ""}
+    <div class="actions" style="margin-top:14px">${pagarBtn}${editBtn}</div>`);
+}
+
 /* ----- lançamento ----- */
 function openTx(t = null, preset = {}, onSaved = null) {
   const ed = !!t;
@@ -1445,6 +1496,10 @@ const ACT = {
         closeSheet(); await LOAD.transacoes(); render(); toast("Pagamento registrado.");
       });
     });
+  },
+  vertx: a => {
+    const t = a.dataset.id ? S.tx.find(x => x.id === a.dataset.id) : recMes(a.dataset.mk).find(v => v.recId === a.dataset.rec);
+    if (t) openView(t);
   },
   agendatudo: () => { AGENDA_TUDO = !AGENDA_TUDO; render(); },
   fatopts: a => {
