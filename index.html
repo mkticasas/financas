@@ -54,6 +54,10 @@ h3{font-size:.95rem;font-weight:600}
 .eye{background:none;border:0;color:var(--fg3);width:32px;height:32px;display:grid;place-items:center;padding:0;flex:none}
 .eye svg{width:20px;height:20px}
 .eye[aria-pressed="true"]{color:var(--gold)}
+.invite{background:var(--gold-soft);border:1px solid rgba(212,168,75,.4);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;font-size:.9rem;color:var(--fg2)}
+.invite b{color:var(--gold2);font-size:1rem}
+.invite-box{display:flex;flex-direction:column;gap:10px}
+.btn.wa{background:#25d366;color:#05210f;text-align:center;text-decoration:none;display:block}
 .check-row{display:flex;gap:10px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .check-row input{width:20px;height:20px;accent-color:var(--gold);flex:none}
 .hero{display:flex;gap:16px;align-items:center}
@@ -282,7 +286,11 @@ const S = {
   mes: mkey(new Date()), view: "inicio", sub: null, relTab: "tudo",
   filt: { tipo: "", pessoa: "", cat: "" },
 };
-let ARM = null;          // botão de confirmação armado
+let ARM = null;
+let CONVITE = null; try { CONVITE = JSON.parse(localStorage.getItem("convite") || "null"); } catch (e) {}
+const limparConvite = () => { CONVITE = null; try { localStorage.removeItem("convite"); } catch (e) {} };
+const BASE_URL = location.origin + location.pathname;
+const linkConvite = () => `${BASE_URL}?convite=${encodeURIComponent(S.casal?.codigo || "")}&de=${encodeURIComponent(S.perfil?.nome || "")}`;          // botão de confirmação armado
 let CUR = {};            // contexto da folha aberta
 
 const LOAD = {
@@ -341,6 +349,7 @@ function showAuth(modo = "entrar", aviso = "") {
   $("#app").innerHTML = `<div class="auth"><div class="card">
     ${MARK}
     <div><h1>Finanças a Dois</h1><p class="muted" style="margin:6px 0 0">O dinheiro de vocês, visível para os dois.</p></div>
+    ${CONVITE ? `<div class="invite"><b>${CONVITE.de ? esc(CONVITE.de) + " te convidou" : "Você foi convidado"}</b><span>Crie sua conta (ou entre, se já tiver) e você cai direto no casal.</span></div>` : ""}
     <div class="seg"><button type="button" data-act="authmode" data-m="entrar" aria-pressed="${modo === "entrar"}">Entrar</button><button type="button" data-act="authmode" data-m="criar" aria-pressed="${modo === "criar"}">Criar conta</button></div>
     <form class="form" data-form="auth" data-m="${modo}" novalidate>
       ${modo === "criar" ? `<label class="f"><span>Seu nome</span><input name="nome" autocomplete="given-name" required placeholder="Ex.: Lucas"></label>` : ""}
@@ -365,7 +374,7 @@ async function authSubmit(f) {
   try {
     if (m === "criar") {
       const nome = f.nome.value.trim(); if (!nome) { errEl.textContent = "Coloque seu nome."; return; }
-      const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome }, emailRedirectTo: location.origin + location.pathname } });
+      const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome }, emailRedirectTo: CONVITE ? `${BASE_URL}?convite=${encodeURIComponent(CONVITE.codigo)}&de=${encodeURIComponent(CONVITE.de || "")}` : BASE_URL } });
       if (error) throw error;
       try { localStorage.setItem("nome_cadastro", nome); } catch (e) {}
       if (!data.session) { showAuth("entrar", "Conta criada. Abra o e-mail de confirmação que enviamos e depois entre aqui."); return; }
@@ -384,7 +393,7 @@ async function authSubmit(f) {
   } finally { btn.disabled = false; }
 }
 
-function showOnboard() {
+function showOnboard(codigo = "", erro = "") {
   let nome = S.session.user.user_metadata?.nome || "";
   try { nome = nome || localStorage.getItem("nome_cadastro") || ""; } catch (e) {}
   $("#app").innerHTML = `<div class="auth"><div class="card">
@@ -400,10 +409,10 @@ function showOnboard() {
     <form class="form" data-form="entrarcasal" novalidate>
       <h3>Entrar com código</h3>
       <label class="f"><span>Seu nome</span><input name="nome" value="${esc(nome)}" required></label>
-      <label class="f"><span>Código de 6 letras</span><input name="codigo" autocapitalize="characters" maxlength="6" required style="text-transform:uppercase;letter-spacing:.2em"></label>
+      <label class="f"><span>Código de 6 letras</span><input name="codigo" value="${esc(codigo)}" autocapitalize="characters" maxlength="6" required style="text-transform:uppercase;letter-spacing:.2em"></label>
       <button class="btn" type="submit">Entrar no casal</button>
     </form>
-    <div class="err" id="o-err"></div>
+    <div class="err" id="o-err">${esc(erro)}</div>
     <button class="btn ghost sm" data-act="sair">Sair desta conta</button>
   </div></div>`;
 }
@@ -421,6 +430,17 @@ async function afterLogin() {
   $("#app").innerHTML = `<div class="loading">Carregando…</div>`;
   const { data: p, error } = await sb.from("perfis").select("*").eq("id", S.session.user.id).maybeSingle();
   if (error) { $("#app").innerHTML = `<div class="loading"><div style="text-align:center;max-width:320px">Não consegui falar com o banco.<br><small class="dim">${esc(error.message)}</small><br><br><button class="btn" onclick="location.reload()">Tentar de novo</button></div></div>`; return; }
+  if ((!p || !p.casal_id) && CONVITE?.codigo) {
+    let nome = p?.nome || S.session.user.user_metadata?.nome || "";
+    try { nome = nome || localStorage.getItem("nome_cadastro") || ""; } catch (e) {}
+    nome = nome || (S.session.user.email || "").split("@")[0];
+    const { error: ec } = await sb.rpc("entrar_casal", { p_codigo: CONVITE.codigo, p_nome: nome });
+    const cod = CONVITE.codigo; limparConvite();
+    if (ec) { showOnboard(cod, "Não deu para entrar pelo convite: " + ec.message); return; }
+    toast("Pronto, você entrou no casal.");
+    return afterLogin();
+  }
+  if (p?.casal_id && CONVITE) limparConvite();
   if (!p || !p.casal_id) return showOnboard();
   S.perfil = p;
   try { await loadAll(); } catch (e) { toast("Erro ao carregar: " + (e.message || e), true); }
@@ -528,7 +548,7 @@ function vInicio() {
   const parcs = parcAtivos();
   const recentes = S.tx.slice(0, 6);
 
-  return `
+  return `${S.perfis.length < 2 ? `<section class="card">${convidarHTML()}</section>` : ""}
   <section class="card">
     <div class="kpis">
       <div class="kpi"><div class="label">Entrou</div><div class="v pos">${brl(ent)}</div></div>
@@ -720,6 +740,16 @@ function vCats() {
   <section class="card"><h2>Receitas</h2><div class="rows">${bloco("receita")}</div><div class="hint">Lançamentos de uma categoria removida ficam como "Sem categoria".</div></section>`;
 }
 
+function convidarHTML() {
+  const msg = `Oi! Criei nosso controle financeiro do casal. Entra por este link e cria sua conta, que você já cai direto no nosso casal: ${linkConvite()}`;
+  return `<div class="invite-box">
+    <h3>Convidar para o casal</h3>
+    <div class="hint">Quem abrir o link e criar a conta entra direto aqui, sem digitar código.</div>
+    <a class="btn wa" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">Enviar convite pelo WhatsApp</a>
+    <div class="actions">${navigator.share ? `<button class="btn sm" data-act="compartilhar">Compartilhar…</button>` : ""}<button class="btn sm ghost" data-act="copiarlink">Copiar link</button></div>
+    <div class="hint">Ou passe o código <b class="num" style="color:var(--gold2);letter-spacing:.15em">${esc(S.casal?.codigo || "")}</b> para digitar em "Entrar com código".</div>
+  </div>`;
+}
 function vPerfil() {
   const p = S.perfil, outro = S.perfis.find(x => x.id !== p.id), pr = p.prefs || {};
   const desde = p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : "";
@@ -762,7 +792,7 @@ function vPerfil() {
       <label class="f"><span>Meta de gastos por mês (R$)</span><input name="meta" inputmode="decimal" value="${S.casal?.meta_mensal ? fmtIn(C(S.casal.meta_mensal)) : ""}" placeholder="Opcional"></label>
     </div><button class="btn" type="submit">Salvar</button></form>
     ${outro ? `<div class="hero" style="gap:10px">${avatar(outro, 36)}<div class="hint">Você e <b style="color:${esc(outro.cor)}">${esc(outro.nome)}</b> compartilham tudo aqui.</div></div>`
-      : `<div><div class="label">Código de convite</div><div class="actions" style="align-items:center"><span class="code" id="codigo">${esc(S.casal?.codigo || "")}</span><button class="btn sm" data-act="copiar">Copiar</button></div><div class="hint">Mande este código para a outra pessoa. Ela cria a conta dela e escolhe "Entrar com código".</div></div>`}
+      : convidarHTML()}
   </section>
 
   <section class="card"><h2>Alterar senha</h2>
@@ -1033,6 +1063,8 @@ const ACT = {
   ocultar: () => { OCULTO = !OCULTO; try { localStorage.setItem("ocultar", OCULTO ? "1" : "0"); } catch (e) {} shell(); render(); },
   trocarfoto: () => $("#p-foto").click(),
   rmfoto: async () => { const { error } = await sb.from("perfis").update({ foto: null }).eq("id", S.perfil.id); if (error) return toast(precisaSQL(error) || error.message, true); await LOAD.perfis(); shell(); render(); toast("Foto removida."); },
+  copiarlink: async () => { const l = linkConvite(); try { await navigator.clipboard.writeText(l); toast("Link copiado."); } catch (e) { toast(l); } },
+  compartilhar: async () => { try { await navigator.share({ title: "Finanças a Dois", text: "Entra no nosso controle financeiro do casal:", url: linkConvite() }); } catch (e) {} },
   copiar: async () => { const c = S.casal?.codigo || ""; try { await navigator.clipboard.writeText(c); toast("Código copiado."); } catch (e) { toast("Código: " + c); } },
   vercomp: async a => {
     const w = window.open("", "_blank");
@@ -1215,8 +1247,14 @@ sb.auth.onAuthStateChange((ev, session) => {
 });
 (async () => {
   try {
+    const qs = new URLSearchParams(location.search);
+    if (qs.get("convite")) {
+      CONVITE = { codigo: qs.get("convite").toUpperCase().slice(0, 6), de: (qs.get("de") || "").slice(0, 40) };
+      try { localStorage.setItem("convite", JSON.stringify(CONVITE)); } catch (e) {}
+      history.replaceState(null, "", location.pathname);
+    }
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) return showAuth();
+    if (!session) return showAuth(CONVITE ? "criar" : "entrar");
     S.session = session; await afterLogin();
   } catch (e) {
     $("#app").innerHTML = `<div class="loading">Erro ao iniciar: ${esc(e.message || e)}</div>`;
