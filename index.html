@@ -127,6 +127,7 @@ button.row:hover{background:var(--s2)}
 .f input,.f select,.f textarea{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;min-width:0}
 .f input.big{font-family:var(--serif);font-size:1.8rem;padding:8px 12px;color:var(--gold2)}
 .f input[type=color]{padding:3px;height:44px}
+.f input.pin{font-size:1.4rem;letter-spacing:.5em;text-align:center;padding:10px 12px}
 .f.check input,.f.check select{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
 .btn{border:1px solid transparent;border-radius:12px;padding:12px 16px;font-weight:600;background:var(--s2);color:var(--fg)}
 .btn.gold{background:var(--gold);color:#1a1405}
@@ -344,7 +345,8 @@ function showAuth(modo = "entrar", aviso = "") {
     <form class="form" data-form="auth" data-m="${modo}" novalidate>
       ${modo === "criar" ? `<label class="f"><span>Seu nome</span><input name="nome" autocomplete="given-name" required placeholder="Ex.: Lucas"></label>` : ""}
       <label class="f"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
-      <label class="f"><span>Senha</span><input name="senha" type="password" autocomplete="${modo === "criar" ? "new-password" : "current-password"}" required minlength="6"></label>
+      <label class="f"><span>Senha (6 números)</span><input name="senha" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="pin" autocomplete="${modo === "criar" ? "new-password" : "current-password"}" required></label>
+      ${modo === "entrar" ? `<button type="button" class="btn ghost sm" data-act="letras" data-name="senha">Minha senha antiga tem letras</button>` : ""}
       <label class="check-row"><input type="checkbox" name="lembrar" ${lembrar() ? "checked" : ""}> Manter conectado neste aparelho</label>
       <div class="err" id="a-err"></div>
       ${aviso ? `<div class="hint" style="color:var(--gold2)">${esc(aviso)}</div>` : ""}
@@ -356,7 +358,8 @@ function showAuth(modo = "entrar", aviso = "") {
 async function authSubmit(f) {
   const m = f.dataset.m, email = f.email.value.trim(), senha = f.senha.value, errEl = $("#a-err");
   errEl.textContent = "";
-  if (!email || senha.length < 6) { errEl.textContent = "Preencha e-mail e uma senha com pelo menos 6 caracteres."; return; }
+  if (!email || !senha) { errEl.textContent = "Preencha o e-mail e a senha."; return; }
+  if (m === "criar" && !/^\d{6}$/.test(senha)) { errEl.textContent = "A senha precisa ter exatamente 6 números."; return; }
   try { localStorage.setItem("lembrar", f.lembrar.checked ? "1" : "0"); } catch (e) {}
   const btn = f.querySelector("[type=submit]"); btn.disabled = true;
   try {
@@ -765,10 +768,11 @@ function vPerfil() {
   <section class="card"><h2>Alterar senha</h2>
     <form class="form" data-form="senha" novalidate>
       <input type="email" name="usuario" value="${esc(S.session.user.email)}" autocomplete="username" hidden>
-      <label class="f"><span>Senha atual</span><input name="atual" type="password" autocomplete="current-password"></label>
+      <label class="f"><span>Senha atual</span><input name="atual" type="password" inputmode="numeric" pattern="[0-9]*" class="pin" autocomplete="current-password"></label>
+      <button type="button" class="btn ghost sm" data-act="letras" data-name="atual" style="align-self:flex-start">Minha senha atual tem letras</button>
       <div class="g2">
-        <label class="f"><span>Nova senha</span><input name="nova" type="password" autocomplete="new-password" minlength="6"></label>
-        <label class="f"><span>Repetir nova senha</span><input name="conf" type="password" autocomplete="new-password" minlength="6"></label>
+        <label class="f"><span>Nova senha (6 números)</span><input name="nova" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="pin" autocomplete="new-password"></label>
+        <label class="f"><span>Repetir nova senha</span><input name="conf" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="pin" autocomplete="new-password"></label>
       </div>
       <div class="err" id="s-err"></div>
       <div class="actions"><button class="btn" type="submit">Alterar senha</button><button type="button" class="btn ghost sm" data-act="semsenha">Não sei minha senha atual</button></div>
@@ -1018,6 +1022,7 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  letras: a => { const i = a.closest("form").querySelector(`[name="${a.dataset.name}"]`); i.setAttribute("inputmode", "text"); i.removeAttribute("pattern"); i.removeAttribute("maxlength"); i.classList.remove("pin"); a.remove(); i.focus(); },
   semsenha: async a => {
     const err = $("#s-err"); a.disabled = true;
     const { error } = await sb.auth.resetPasswordForEmail(S.session.user.email, { redirectTo: location.origin + location.pathname });
@@ -1117,6 +1122,7 @@ document.addEventListener("click", e => {
   if (a.tagName === "INPUT" || a.tagName === "SELECT") return; // tratados em change
   e.preventDefault(); f(a, e);
 });
+document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("pin")) { const v = i.value.replace(/\D/g, "").slice(0, 6); if (v !== i.value) i.value = v; } });
 document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
   const id = a.dataset.id;
@@ -1174,7 +1180,7 @@ const FORM = {
     const err = $("#s-err"); err.textContent = ""; err.style.color = "";
     const atual = f.atual.value, nova = f.nova.value, conf = f.conf.value;
     if (!atual) { err.textContent = "Digite sua senha atual."; return; }
-    if (nova.length < 6) { err.textContent = "A nova senha precisa ter pelo menos 6 caracteres."; return; }
+    if (!/^\d{6}$/.test(nova)) { err.textContent = "A nova senha precisa ter exatamente 6 números."; return; }
     if (nova !== conf) { err.textContent = "As duas senhas novas não são iguais."; return; }
     if (nova === atual) { err.textContent = "A nova senha é igual à atual."; return; }
     const btn = f.querySelector("[type=submit]"); btn.disabled = true;
@@ -1195,10 +1201,10 @@ document.addEventListener("submit", e => {
 sb.auth.onAuthStateChange((ev, session) => {
   if (ev === "PASSWORD_RECOVERY") {
     S.session = session;
-    setTimeout(() => openSheet("Nova senha", `<form class="form" id="pwf" novalidate><label class="f"><span>Nova senha</span><input id="pw" type="password" minlength="6" autocomplete="new-password"></label><div class="err" id="pw-err"></div><button class="btn gold" type="submit">Salvar senha</button></form>`, root => {
+    setTimeout(() => openSheet("Nova senha", `<form class="form" id="pwf" novalidate><label class="f"><span>Nova senha (6 números)</span><input id="pw" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" class="pin" autocomplete="new-password"></label><div class="err" id="pw-err"></div><button class="btn gold" type="submit">Salvar senha</button></form>`, root => {
       $("#pwf", root).addEventListener("submit", async e => {
         e.preventDefault(); const p = $("#pw", root).value;
-        if (p.length < 6) { $("#pw-err", root).textContent = "Use pelo menos 6 caracteres."; return; }
+        if (!/^\d{6}$/.test(p)) { $("#pw-err", root).textContent = "A senha precisa ter exatamente 6 números."; return; }
         const { error } = await sb.auth.updateUser({ password: p });
         if (error) { $("#pw-err", root).textContent = error.message; return; }
         closeSheet(); toast("Senha alterada."); afterLogin();
