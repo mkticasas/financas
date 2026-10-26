@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f0e0c">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanças">
@@ -58,6 +61,7 @@ h3{font-size:.95rem;font-weight:600}
 .invite b{color:var(--gold2);font-size:1rem}
 .invite-box{display:flex;flex-direction:column;gap:10px}
 .btn.wa{background:#25d366;color:#05210f;text-align:center;text-decoration:none;display:block}
+.upd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--s2);border:1px solid var(--gold);border-radius:14px;padding:8px 8px 8px 14px;display:flex;gap:12px;align-items:center;font-size:.9rem;width:max-content;max-width:calc(100% - 32px)}
 .check-row{display:flex;gap:10px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .check-row input{width:20px;height:20px;accent-color:var(--gold);flex:none}
 .hero{display:flex;gap:16px;align-items:center}
@@ -213,6 +217,7 @@ button.row:hover{background:var(--s2)}
 
 <script>
 /* ===================== Configuração ===================== */
+const APP_VERSION = "2026.10.26-1313";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -447,6 +452,29 @@ async function afterLogin() {
   shell(); render(); subscribe();
 }
 
+/* ===================== Atualização do app ===================== */
+// O app instalado na tela inicial guarda a versão antiga. Ao abrir e ao voltar para ele,
+// confere version.json; se mudou, recarrega pela URL nova (fura o cache do iPhone).
+const atualizarApp = v => location.replace(BASE_URL + "?v=" + encodeURIComponent(v || Date.now()));
+async function checarVersao(auto) {
+  try {
+    const r = await fetch(BASE_URL + "version.json?t=" + Date.now(), { cache: "no-store" });
+    const { v } = await r.json();
+    if (!v || v === APP_VERSION) return false;
+    const ocupado = $("#sheet") || (document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName));
+    // tenta recarregar sozinho só uma vez por versão (se o GitHub ainda servir o index antigo, não entra em loop)
+    let tentou = null; try { tentou = sessionStorage.getItem("upd_try"); } catch (e) {}
+    if (auto && !ocupado && tentou !== v) { try { sessionStorage.setItem("upd_try", v); } catch (e) {} atualizarApp(v); return true; }
+    if (!$("#upd")) {
+      const d = document.createElement("div"); d.id = "upd"; d.className = "upd";
+      d.innerHTML = `<span>Nova versão disponível</span><button class="btn gold sm" data-act="atualizar" data-v="${esc(v)}">Atualizar</button>`;
+      document.body.appendChild(d);
+    }
+    return true;
+  } catch (e) { return false; }
+}
+setInterval(() => { if (document.visibilityState === "visible") checarVersao(false); }, 10 * 60 * 1000);
+
 /* ===================== Tempo real ===================== */
 let channel, pend = {}, pendT;
 function subscribe() {
@@ -460,6 +488,7 @@ function queue(t) {
   pendT = setTimeout(async () => { const ts = Object.keys(pend); pend = {}; await Promise.all(ts.map(k => LOAD[k]().catch(() => {}))); safeRender(); }, 350);
 }
 document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible") checarVersao(true);
   if (document.visibilityState === "visible" && S.perfil) { try { await loadAll(); safeRender(); } catch (e) {} }
 });
 let dirty = false;
@@ -645,7 +674,8 @@ function vMais() {
     ${item("cartoes", "Cartões", "Fatura do mês e parcelas futuras")}
     ${item("categorias", "Categorias", "Criar e organizar")}
     ${item("perfil", "Perfil e casal", "Seu nome, cor, código de convite, sair")}
-  </div></section>`;
+  </div></section>
+  <section class="card"><div class="card-h"><span><b>Versão do app</b><br><small class="dim num">${esc(APP_VERSION)}</small></span><button class="btn sm" data-act="atualizar">Atualizar app</button></div></section>`;
 }
 
 function vRel() {
@@ -1052,6 +1082,7 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  atualizar: async a => { if (a.dataset.v) return atualizarApp(a.dataset.v); a.disabled = true; a.textContent = "Verificando…"; if (!(await checarVersao(true))) { a.disabled = false; a.textContent = "Atualizar app"; toast("Você já está na versão mais nova."); } },
   letras: a => { const i = a.closest("form").querySelector(`[name="${a.dataset.name}"]`); i.setAttribute("inputmode", "text"); i.removeAttribute("pattern"); i.removeAttribute("maxlength"); i.classList.remove("pin"); a.remove(); i.focus(); },
   semsenha: async a => {
     const err = $("#s-err"); a.disabled = true;
@@ -1251,8 +1282,9 @@ sb.auth.onAuthStateChange((ev, session) => {
     if (qs.get("convite")) {
       CONVITE = { codigo: qs.get("convite").toUpperCase().slice(0, 6), de: (qs.get("de") || "").slice(0, 40) };
       try { localStorage.setItem("convite", JSON.stringify(CONVITE)); } catch (e) {}
-      history.replaceState(null, "", location.pathname);
     }
+    if (qs.has("convite") || qs.has("v")) history.replaceState(null, "", location.pathname);
+    checarVersao(true);
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return showAuth(CONVITE ? "criar" : "entrar");
     S.session = session; await afterLogin();
