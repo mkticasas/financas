@@ -224,7 +224,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1335";
+const APP_VERSION = "2026.10.26-1348";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -713,7 +713,7 @@ function vCompras() {
       <div class="row" style="grid-template-columns:auto minmax(0,1fr) auto">
         <input type="checkbox" data-act="pego" data-id="${i.id}" ${i.pego ? "checked" : ""} aria-label="No carrinho: ${esc(i.nome)}" style="width:22px;height:22px;accent-color:var(--gold)">
         <span style="min-width:0"><b style="${i.pego ? "text-decoration:line-through;color:var(--fg3)" : ""}">${esc(i.nome)}</b><small>${esc(pessoaNome(i.criado_por))}</small>
-          ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="decimal" placeholder="Preço" value="${i._p ? fmtIn(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
+          ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="numeric" class="money" placeholder="Preço" value="${i._p ? fmtMoney(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
         </span>
         <button class="btn ghost sm" data-act="rmitem" data-id="${i.id}">Remover</button>
       </div>`).join("")}</div>` : `<div class="empty">Lista vazia. Adicione o que falta em casa.</div>`}
@@ -782,7 +782,7 @@ function vContas() {
       <label class="f"><span>Tipo</span><select name="tipo">${Object.entries(TIPOS_CONTA).map(([k, v]) => opt(k, v)).join("")}</select></label>
       <label class="f"><span>Banco</span><input name="banco" placeholder="Opcional"></label>
       <label class="f"><span>De quem</span><select name="pessoa">${pOpts}</select></label>
-      <label class="f"><span>Saldo hoje (R$)</span><input name="saldo" inputmode="decimal" placeholder="0,00"></label>
+      <label class="f"><span>Saldo hoje (R$)</span><input name="saldo" inputmode="numeric" class="money" placeholder="0,00"></label>
     </div><button class="btn gold" type="submit">Adicionar conta</button></form></section>
   <section class="card"><h2>Contas</h2>${S.contas.length ? `<div class="rows">${S.contas.map(c => { const s = saldoConta(c); return `<div class="row" style="grid-template-columns:4px minmax(0,1fr) auto"><span class="tag" style="background:${esc(pessoaCor(c.pessoa_id))}"></span><span style="min-width:0"><b>${esc(c.nome)}</b><small>${esc(TIPOS_CONTA[c.tipo] || c.tipo)}${c.banco ? " · " + esc(c.banco) : ""} · ${esc(pessoaNome(c.pessoa_id))}</small>
       <span class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="ajsaldo" data-id="${c.id}">Ajustar saldo</button>${armBtn("conta:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt ${s < 0 ? "neg" : ""}">${brl(s)}</span></div>`; }).join("")}</div>
@@ -862,7 +862,7 @@ function vPerfil() {
       <label class="f"><span>Nome</span><input name="nome" value="${esc(p.nome)}" required></label>
       <div class="f"><span>Sua cor</span><div class="swatches" role="radiogroup" aria-label="Sua cor">${CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c.toLowerCase() === String(p.cor).toLowerCase() ? "checked" : ""} aria-label="Cor ${c}"><span style="background:${c}"></span></label>`).join("")}</div>
         <div class="hint">Aparece no seu nome, nos seus gastos e nos gráficos.</div></div>
-      <label class="f"><span>Renda mensal (R$)</span><input name="renda" inputmode="decimal" value="${p.renda_mensal ? fmtIn(C(p.renda_mensal)) : ""}" placeholder="Opcional, só para referência"></label>
+      <label class="f"><span>Renda mensal (R$)</span><input name="renda" inputmode="numeric" class="money" value="${p.renda_mensal ? fmtMoney(C(p.renda_mensal)) : ""}" placeholder="Opcional, só para referência"></label>
       <button class="btn gold" type="submit">Salvar</button>
     </form>
   </section>
@@ -887,7 +887,7 @@ function vPerfil() {
   <section class="card"><h2>Casal</h2>
     <form class="form" data-form="casal" novalidate><div class="g2">
       <label class="f"><span>Nome do casal</span><input name="nome" value="${esc(S.casal?.nome || "")}"></label>
-      <label class="f"><span>Meta de gastos por mês (R$)</span><input name="meta" inputmode="decimal" value="${S.casal?.meta_mensal ? fmtIn(C(S.casal.meta_mensal)) : ""}" placeholder="Opcional"></label>
+      <label class="f"><span>Meta de gastos por mês (R$)</span><input name="meta" inputmode="numeric" class="money" value="${S.casal?.meta_mensal ? fmtMoney(C(S.casal.meta_mensal)) : ""}" placeholder="Opcional"></label>
     </div><button class="btn" type="submit">Salvar</button></form>
     ${outro ? `<div class="hero" style="gap:10px">${avatar(outro, 36)}<div class="hint">Você e <b style="color:${esc(outro.cor)}">${esc(outro.nome)}</b> compartilham tudo aqui.</div></div>`
       : convidarHTML()}
@@ -965,7 +965,7 @@ function openTx(t = null, preset = {}, onSaved = null) {
   const html = `<form id="txf" class="form" novalidate>
     ${ed ? "" : `<div class="ai"><button type="button" class="btn ai-btn" data-act="foto">Ler comprovante por foto</button><input type="file" id="t-file" accept="image/*" hidden><div class="ai-step" id="t-step">Tire uma foto ou escolha da galeria. Você confere tudo antes de salvar.</div></div>`}
     <div class="seg"><button type="button" data-tipo="despesa" aria-pressed="${v.tipo === "despesa"}">Despesa</button><button type="button" data-tipo="receita" aria-pressed="${v.tipo === "receita"}">Receita</button></div>
-    <label class="f" id="w-valor"><span>Valor ${grp ? "desta parcela" : "(total)"}</span><input id="t-valor" class="big num" inputmode="decimal" placeholder="0,00" value="${v._c ? fmtIn(v._c) : ""}"></label>
+    <label class="f" id="w-valor"><span>Valor ${grp ? "desta parcela" : "(total)"}</span><input id="t-valor" class="big num money" inputmode="numeric" placeholder="0,00" value="${v._c ? fmtMoney(v._c) : ""}"></label>
     <label class="f" id="w-desc"><span>Descrição</span><input id="t-desc" value="${esc(v.descricao)}" placeholder="Ex.: Mercado Tauste"></label>
     <div class="g2">
       <label class="f" id="w-data"><span>Data</span><input id="t-data" type="date" value="${esc(v.data)}"></label>
@@ -1069,7 +1069,7 @@ function preencher(d, root, step) {
   if (d.legivel === false) { step("A imagem não parece um comprovante legível. Tente outra foto, com boa luz e sem cortes.", "bad"); return; }
   const tipo = d.tipo === "receita" ? "receita" : "despesa";
   root.querySelector(`.seg [data-tipo="${tipo}"]`).click();
-  if (d.valor > 0) $("#t-valor", root).value = fmtIn(Math.round(d.valor * 100));
+  if (d.valor > 0) $("#t-valor", root).value = fmtMoney(Math.round(d.valor * 100));
   if (d.descricao) $("#t-desc", root).value = d.descricao;
   if (/^\d{4}-\d{2}-\d{2}$/.test(d.data || "")) $("#t-data", root).value = d.data;
   if (FORMAS.includes(d.forma)) $("#t-forma", root).value = d.forma;
@@ -1095,7 +1095,7 @@ function openRec(r = null) {
   const ativo = ed && !r.fim;
   const html = `<form id="recf" class="form" novalidate>
     <div class="seg"><button type="button" data-tipo="despesa" aria-pressed="${v.tipo === "despesa"}">Gasto fixo</button><button type="button" data-tipo="receita" aria-pressed="${v.tipo === "receita"}">Entrada recorrente</button></div>
-    <label class="f"><span>Valor por mês</span><input id="r-valor" class="big num" inputmode="decimal" placeholder="0,00" value="${v._c ? fmtIn(v._c) : ""}"></label>
+    <label class="f"><span>Valor por mês</span><input id="r-valor" class="big num money" inputmode="numeric" placeholder="0,00" value="${v._c ? fmtMoney(v._c) : ""}"></label>
     <label class="f"><span>Descrição</span><input id="r-desc" value="${esc(v.descricao)}" placeholder="Ex.: Netflix, aluguel, salário"></label>
     <div class="g2">
       <label class="f"><span>Dia do mês</span><input id="r-dia" type="number" min="1" max="31" value="${v.dia}"></label>
@@ -1149,6 +1149,7 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  sinal: a => { const i = a.closest("form").querySelector(".money"); i.value = i.value.startsWith("-") ? i.value.slice(1) : "-" + i.value; },
   notifon: a => ativarNotif(a),
   notifoff: () => desativarNotif(),
   atualizar: async a => { if (a.dataset.v) return atualizarApp(a.dataset.v); a.disabled = true; a.textContent = "Verificando…"; if (!(await checarVersao(true))) { a.disabled = false; a.textContent = "Atualizar app"; toast("Você já está na versão mais nova."); } },
@@ -1199,7 +1200,7 @@ const ACT = {
   },
   ajsaldo: a => {
     const c = S.contas.find(x => x.id === a.dataset.id); if (!c) return;
-    openSheet("Ajustar saldo", `<form class="form" id="ajf" novalidate><div class="hint">Informe quanto tem hoje em <b>${esc(c.nome)}</b>. A partir de hoje o saldo segue os lançamentos.</div><label class="f"><span>Saldo hoje (R$)</span><input id="aj-v" class="big num" inputmode="decimal" value="${fmtIn(saldoConta(c))}"></label><button class="btn gold" type="submit">Salvar</button></form>`, root => {
+    openSheet("Ajustar saldo", `<form class="form" id="ajf" novalidate><div class="hint">Informe quanto tem hoje em <b>${esc(c.nome)}</b>. A partir de hoje o saldo segue os lançamentos.</div><label class="f"><span>Saldo hoje (R$)</span><input id="aj-v" class="big num money" data-neg="1" inputmode="numeric" value="${fmtMoney(saldoConta(c))}"></label><button type="button" class="btn ghost sm" data-act="sinal" style="align-self:flex-start">Trocar sinal (+/−)</button><button class="btn gold" type="submit">Salvar</button></form>`, root => {
       $("#ajf", root).addEventListener("submit", async e => {
         e.preventDefault(); const v = parseMoney($("#aj-v", root).value); if (!isFinite(v)) return;
         // o saldo informado já inclui os lançamentos de hoje; desconta para não somar duas vezes
@@ -1254,6 +1255,17 @@ document.addEventListener("click", e => {
   if (a.tagName === "INPUT" || a.tagName === "SELECT") return; // tratados em change
   e.preventDefault(); f(a, e);
 });
+// Dinheiro com vírgula fixa: digitar 1990 vira 19,90 (os dois últimos números são centavos)
+function mascaraDinheiro(i) {
+  const neg = i.dataset.neg === "1" && /-/.test(i.value);
+  const dig = i.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 11);
+  if (!dig) { i.value = neg ? "-" : ""; return; }
+  const c = Number(dig), txt = (c / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  i.value = (neg ? "-" : "") + txt;
+}
+const fmtMoney = c => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("money")) { mascaraDinheiro(i); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} } });
+document.addEventListener("focusin", e => { const i = e.target; if (i.classList && i.classList.contains("money")) setTimeout(() => { try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }, 0); });
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("pin")) { const v = i.value.replace(/\D/g, "").slice(0, 6); if (v !== i.value) i.value = v; } });
 document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
