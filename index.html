@@ -264,7 +264,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1402";
+const APP_VERSION = "2026.10.26-1406";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -392,7 +392,7 @@ function parcAtivos() {
     a.sort((x, y) => x.parcela - y.parcela);
     return {
       t: a[0], desc: a[0].descricao, total: a[0].parcelas,
-      pagas: a.filter(t => t.data <= hj).length,
+      pagas: (a[0].parcela || 1) - 1 + a.filter(t => t.data <= hj).length,
       parc: a[a.length - 1]._c,
       restante: a.filter(t => t.data > hj).reduce((s, t) => s + t._c, 0),
       fim: a[a.length - 1].data,
@@ -1260,7 +1260,7 @@ const ACT = {
   txdel: () => {
     const t = CUR.t, el = $("#t-del");
     el.innerHTML = t.grupo
-      ? `<button type="button" class="btn sm armed" data-act="txdel1">Só esta parcela</button><button type="button" class="btn sm armed" data-act="txdelf">Esta e as próximas</button><button type="button" class="btn sm armed" data-act="txdela">Todas as ${t.parcelas}</button>`
+      ? `<button type="button" class="btn sm armed" data-act="txdel1">Só esta parcela</button><button type="button" class="btn sm armed" data-act="txdelf">Esta e as próximas</button><button type="button" class="btn sm armed" data-act="txdela">Todas as ${S.tx.filter(x => x.grupo === t.grupo).length}</button>`
       : `<button type="button" class="btn sm armed" data-act="txdel1">Confirmar exclusão</button>`;
   },
   txdel1: () => delTx(q => q.eq("id", CUR.t.id)),
