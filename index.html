@@ -10,6 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanças">
+<link rel="apple-touch-icon" href="icon-180.png?v=1">
+<link rel="manifest" href="manifest.json">
 <title>Finanças a Dois</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f0e0c'/%3E%3Ccircle cx='26' cy='32' r='13' fill='none' stroke='%23d4a84b' stroke-width='4'/%3E%3Ccircle cx='38' cy='32' r='13' fill='none' stroke='%23e8c97a' stroke-width='4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,6 +137,10 @@ button.row:hover{background:var(--s2)}
 .f input,.f select,.f textarea{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px;width:100%;min-width:0}
 .f input.big{font-family:var(--serif);font-size:1.8rem;padding:8px 12px;color:var(--gold2)}
 .f input[type=color]{padding:3px;height:44px}
+/* iPhone: campo de data/mês tem largura mínima própria e estoura a coluna */
+.f input[type=date],.f input[type=month]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
+.f input::-webkit-date-and-time-value{text-align:left;margin:0}
+.f select{-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--fg3) 50%),linear-gradient(135deg,var(--fg3) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px;text-overflow:ellipsis}
 .f input.pin{font-size:1.4rem;letter-spacing:.5em;text-align:center;padding:10px 12px}
 .f.check input,.f.check select{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
 .btn{border:1px solid transparent;border-radius:12px;padding:12px 16px;font-weight:600;background:var(--s2);color:var(--fg)}
@@ -179,8 +185,8 @@ button.row:hover{background:var(--s2)}
 .nav .plus svg{width:26px;height:26px}
 
 /* folha (modal) */
-.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--s1);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:18px max(16px,env(safe-area-inset-left,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px))}
+.sheet-bg{position:fixed;inset:0;overflow:hidden;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--s1);border:1px solid var(--line);border-bottom:0;border-radius:22px 22px 0 0;width:100%;max-width:640px;max-height:92vh;max-height:92dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:18px max(16px,env(safe-area-inset-left,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px))}
 @media (min-width:700px){.sheet-bg{align-items:center}.sheet{border-radius:22px;border-bottom:1px solid var(--line)}}
 .sheet-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .x{background:none;border:1px solid var(--line);border-radius:10px;width:34px;height:34px;color:var(--fg2);font-size:1.1rem}
@@ -217,7 +223,7 @@ button.row:hover{background:var(--s2)}
 
 <script>
 /* ===================== Configuração ===================== */
-const APP_VERSION = "2026.10.26-1313";
+const APP_VERSION = "2026.10.26-1316";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -922,7 +928,6 @@ function openTx(t = null, preset = {}, onSaved = null) {
     ["t-valor", "t-data", "t-parc"].forEach(id => $("#" + id, root)?.addEventListener("input", () => prevParc(root, "t")));
     $("#t-file", root)?.addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) lerFoto(f, root); });
     $("#txf", root).addEventListener("submit", e => { e.preventDefault(); saveTx(root); });
-    if (!ed) setTimeout(() => $("#t-valor", root).focus(), 60);
   });
 }
 async function saveTx(root) {
