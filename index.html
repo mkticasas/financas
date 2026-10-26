@@ -165,6 +165,8 @@ button.row:hover{background:var(--s2)}
 .row.ag .amt small{font-weight:500;font-size:.74rem}
 .row .amt small{display:block}
 .fat{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:.86rem;color:var(--fg2);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+/* Contas e Cartões: a lista vem antes do formulário de cadastro */
+main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{order:2}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -297,7 +299,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1424";
+const APP_VERSION = "2026.10.26-1430";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -965,11 +967,11 @@ function vCartoes() {
       const mes = lanc(mk).filter(t => t.tipo === "despesa" && t.cartao_id === c.id), tot = soma(mes);
       const fut = S.tx.filter(t => t.cartao_id === c.id && t.tipo === "despesa" && t.data >= fim).reduce((s, t) => s + t._c, 0);
       const pf = cartaoOk(c) ? proximasFaturas(c, addMonths(today(), 2))[0] : null;
-      const linhaFat = pf ? `<div class="fat"><span>Próxima fatura <b class="num">${brl(pf.total)}</b> · vence ${dm(pf.venc)}${pf.aberta ? " · fecha " + dm(pf.ate) : ""}${pf.pago ? ` · <span class="pos">pago ${brl(pf.pago)}</span>` : ""}</span>${pf.falta > 0 ? `<button class="btn sm" data-act="pagarfat" data-card="${c.id}" data-venc="${pf.venc}">Pagar</button>` : ""}</div>` : `<div class="hint">Sem dia de fechamento e vencimento: a fatura não entra na previsão.</div>`;
+      const linhaFat = !cartaoOk(c) ? `<div class="fat"><span>Falta o dia de fechamento e vencimento para calcular a fatura.</span><button class="btn sm gold" data-act="editcartao" data-id="${c.id}">Definir</button></div>` : pf ? `<div class="fat"><span>Próxima fatura <b class="num">${brl(pf.total)}</b> · vence ${dm(pf.venc)}${pf.aberta ? " · fecha " + dm(pf.ate) : ""}${pf.pago ? ` · <span class="pos">pago ${brl(pf.pago)}</span>` : ""}</span>${pf.falta > 0 ? `<button class="btn sm" data-act="pagarfat" data-card="${c.id}" data-venc="${pf.venc}">Pagar</button>` : ""}</div>` : `<div class="hint">Sem dia de fechamento e vencimento: a fatura não entra na previsão.</div>`;
       return `<div class="row"><span class="tag" style="background:${esc(c.cor)}"></span><span style="min-width:0"><b>${esc(c.nome)}${c.final ? ` <span class="dim num" style="font-weight:400">··${esc(c.final)}</span>` : ""}</b>
       <small>${esc(pessoaNome(c.pessoa_id))} · ${mes.length} ${mes.length === 1 ? "lançamento" : "lançamentos"}${c.fechamento ? " · fecha dia " + c.fechamento : ""}${c.vencimento ? " · vence dia " + c.vencimento : ""}${fut ? " · " + brl(fut) + " nos próximos meses" : ""}</small>
       ${linhaFat}
-      <span class="actions" style="margin-top:8px">${armBtn("cartao:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt">${brl(tot)}<small class="dim" style="font-weight:400">no mês</small></span></div>`; }).join("")}</div>` : `<div class="empty">Nenhum cartão ainda.</div>`}</section>`;
+      <span class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="editcartao" data-id="${c.id}">Editar</button>${pf && pf.itens.length ? `<button class="btn sm ghost" data-act="fatopts" data-card="${c.id}" data-venc="${pf.venc}">Ver fatura</button>` : ""}${armBtn("cartao:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt">${brl(tot)}<small class="dim" style="font-weight:400">no mês</small></span></div>`; }).join("")}</div>` : `<div class="empty">Nenhum cartão ainda.</div>`}</section>`;
 }
 
 function vRec() {
@@ -1368,6 +1370,26 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  editcartao: a => {
+    const c = S.cartoes.find(x => x.id === a.dataset.id); if (!c) return;
+    openSheet("Editar cartão", `<form class="form" id="ecf" novalidate><div class="g2">
+      <label class="f full"><span>Nome</span><input id="ec-nome" value="${esc(c.nome)}"></label>
+      <label class="f"><span>Titular</span><select id="ec-pessoa"><option value="">Casal</option>${S.perfis.map(p => opt(p.id, p.nome, p.id === c.pessoa_id)).join("")}</select></label>
+      <label class="f"><span>Final (4 dígitos)</span><input id="ec-final" inputmode="numeric" maxlength="4" value="${esc(c.final || "")}"></label>
+      <label class="f"><span>Dia de fechamento</span><input id="ec-fech" type="number" inputmode="numeric" min="1" max="31" value="${c.fechamento || ""}" placeholder="Ex.: 5"></label>
+      <label class="f"><span>Dia de vencimento</span><input id="ec-venc" type="number" inputmode="numeric" min="1" max="31" value="${c.vencimento || ""}" placeholder="Ex.: 12"></label>
+      <label class="f"><span>Cor</span><input id="ec-cor" type="color" value="${esc(c.cor || "#d4a84b")}"></label>
+    </div><div class="hint">O fechamento e o vencimento estão no app do banco ou na própria fatura.</div>
+    <div class="err" id="ec-err"></div><button class="btn gold" type="submit">Salvar</button></form>`, root => {
+      $("#ecf", root).addEventListener("submit", async e => {
+        e.preventDefault(); const n = v => { const x = parseInt(v); return x >= 1 && x <= 31 ? x : null; };
+        const up = { nome: $("#ec-nome", root).value.trim() || c.nome, pessoa_id: $("#ec-pessoa", root).value || null, final: $("#ec-final", root).value.replace(/\D/g, "").slice(-4) || null, fechamento: n($("#ec-fech", root).value), vencimento: n($("#ec-venc", root).value), cor: $("#ec-cor", root).value };
+        const { error } = await sb.from("cartoes").update(up).eq("id", c.id);
+        if (error) { $("#ec-err", root).textContent = error.message; return; }
+        closeSheet(); await LOAD.cartoes(); render(); toast("Cartão salvo.");
+      });
+    });
+  },
   agendatudo: () => { AGENDA_TUDO = !AGENDA_TUDO; render(); },
   fatopts: a => {
     const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
