@@ -771,7 +771,7 @@ function vPerfil() {
         <label class="f"><span>Repetir nova senha</span><input name="conf" type="password" autocomplete="new-password" minlength="6"></label>
       </div>
       <div class="err" id="s-err"></div>
-      <button class="btn" type="submit">Alterar senha</button>
+      <div class="actions"><button class="btn" type="submit">Alterar senha</button><button type="button" class="btn ghost sm" data-act="semsenha">Não sei minha senha atual</button></div>
     </form>
   </section>
 
@@ -1018,6 +1018,13 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  semsenha: async a => {
+    const err = $("#s-err"); a.disabled = true;
+    const { error } = await sb.auth.resetPasswordForEmail(S.session.user.email, { redirectTo: location.origin + location.pathname });
+    a.disabled = false;
+    if (error) { err.style.color = ""; err.textContent = /rate|seconds/i.test(error.message) ? "Muitos e-mails em pouco tempo. Espere alguns minutos e tente de novo." : error.message; return; }
+    err.style.color = "var(--gold2)"; err.textContent = "Enviamos um link para " + S.session.user.email + ". Abra o e-mail neste aparelho e toque no link para criar a senha nova (veja também o spam).";
+  },
   ocultar: () => { OCULTO = !OCULTO; try { localStorage.setItem("ocultar", OCULTO ? "1" : "0"); } catch (e) {} shell(); render(); },
   trocarfoto: () => $("#p-foto").click(),
   rmfoto: async () => { const { error } = await sb.from("perfis").update({ foto: null }).eq("id", S.perfil.id); if (error) return toast(precisaSQL(error) || error.message, true); await LOAD.perfis(); shell(); render(); toast("Foto removida."); },
