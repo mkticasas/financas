@@ -106,7 +106,7 @@ button.row:hover{background:var(--s2)}
 .donut-wrap{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center}
 .donut{width:150px;height:150px;border-radius:50%;position:relative}
 .donut::after{content:"";position:absolute;inset:22px;border-radius:50%;background:var(--s1)}
-.donut span{position:absolute;inset:0;display:grid;place-items:center;z-index:1;text-align:center;font-size:.8rem;color:var(--fg2)}
+.donut>span{position:absolute;inset:0;display:grid;place-items:center;z-index:1;text-align:center;font-size:.8rem;color:var(--fg2)}
 .donut span b{display:block;font-family:var(--serif);font-weight:400;font-size:1.1rem;color:var(--fg)}
 .legend{display:flex;flex-direction:column;gap:6px;font-size:.86rem;min-width:0}
 .legend div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:center}
@@ -208,10 +208,48 @@ button.row:hover{background:var(--s2)}
 .toast.bad{border-color:var(--red);color:#ffd9d6}
 .loading{min-height:100vh;display:grid;place-items:center;color:var(--fg3)}
 
+/* ===== Computador ===== */
+.side-brand,.plus-txt{display:none}
+@media (min-width:1000px){
+  body{padding-bottom:0;padding-left:240px}
+  .wrap{max-width:1180px}
+  .top .wrap{padding-block:16px}
+  .top .brand{font-size:1.6rem}
+  .nav{top:0;bottom:0;right:auto;width:240px;border-top:0;border-right:1px solid var(--line);padding-bottom:0;background:var(--s1)}
+  .nav .wrap{display:flex;flex-direction:column;align-items:stretch;height:100%;gap:4px;padding:22px 14px;max-width:none}
+  .side-brand{display:flex;gap:12px;align-items:center;padding:0 8px 22px;order:-2}
+  .side-brand .mark{width:40px;height:40px;flex:none}
+  .side-brand b{display:block;font-family:var(--serif);font-weight:400;font-size:1.15rem;color:var(--gold)}
+  .side-brand small{color:var(--fg3);font-size:.78rem}
+  .nav button{flex-direction:row;justify-content:flex-start;gap:12px;font-size:.95rem;padding:11px 14px;border-radius:12px;color:var(--fg2)}
+  .nav button:hover{background:var(--s2);color:var(--fg)}
+  .nav button[aria-current="page"]{background:var(--gold-soft);color:var(--gold2)}
+  .nav .plus{order:-1;width:auto;height:48px;border-radius:12px;margin:0 0 16px;display:flex;justify-content:center;box-shadow:none;color:#1a1405;font-weight:700}
+  .nav .plus:hover{background:var(--gold2);color:#1a1405}
+  .nav .plus svg{width:20px;height:20px}
+  .plus-txt{display:inline}
+  main{padding-block:26px 40px;gap:18px}
+  .card{padding:22px}
+  .kpi .v{font-size:2.1rem}
+  /* telas em duas colunas */
+  main.view-inicio,main.sub-relatorios,main.sub-perfil,main.sub-contas,main.sub-cartoes,main.sub-categorias,main.sub-recorrentes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  main .wide,main .back{grid-column:1/-1}
+  main.sub-recorrentes>section:first-of-type{grid-column:1/-1}
+  main.view-lanc,main.view-compras,main.view-mais:not([class*="sub-"]){max-width:860px}
+  .donut-wrap{grid-template-columns:170px minmax(0,1fr)}
+  .donut{width:170px;height:170px}
+  .bars{height:190px}
+  .toast{bottom:28px;left:calc(50% + 120px)}
+  .upd{bottom:28px;left:calc(50% + 120px)}
+  main.view-compras section[style*="sticky"]{bottom:16px!important}
+  .sheet{max-width:620px}
+}
 @media print{
   :root{color-scheme:light}
   html,body{background:#fff;color:#111;padding:0}
-  .top,.nav,.noprint,.sheet-bg,.toast{display:none!important}
+  .top,.nav,.noprint,.sheet-bg,.toast,.upd{display:none!important}
+  body{padding-left:0!important}
+  main{display:flex!important;flex-direction:column}
   .card{background:#fff;border:1px solid #ccc;break-inside:avoid}
   .muted,.dim,.row small,.label{color:#555}
   .kpi .v{color:#111!important}
@@ -224,7 +262,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1348";
+const APP_VERSION = "2026.10.26-1352";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -575,9 +613,10 @@ function shell() {
   </div></header>
   <main class="wrap" id="view"></main>
   <nav class="nav noprint"><div class="wrap">
+    <div class="side-brand">${MARK}<div><b>Finanças a Dois</b><small>${esc(S.casal?.nome || "")}</small></div></div>
     <button data-act="go" data-v="inicio">${ICON.home}Início</button>
     <button data-act="go" data-v="lanc">${ICON.list}Lançamentos</button>
-    <button class="plus" data-act="novo" aria-label="Novo lançamento">${ICON.plus}</button>
+    <button class="plus" data-act="novo" aria-label="Novo lançamento">${ICON.plus}<span class="plus-txt">Novo lançamento</span></button>
     <button data-act="go" data-v="compras">${ICON.cart}Compras</button>
     <button data-act="go" data-v="mais">${ICON.more}Mais</button>
   </div></nav>`;
@@ -592,6 +631,7 @@ function render() {
   document.title = S.casal?.nome || "Finanças a Dois";
   document.querySelectorAll(".nav [data-v]").forEach(b => b.dataset.v === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   const V = { inicio: vInicio, lanc: vLanc, compras: vCompras, mais: vMais }[S.view] || vInicio;
+  $("#view").className = "wrap view-" + S.view + (S.view === "mais" && S.sub ? " sub-" + S.sub : "");
   $("#view").innerHTML = V();
   if (S.view === "mais" && S.sub === "perfil") atualizarNotifBox();
 }
@@ -643,8 +683,8 @@ function vInicio() {
   const parcs = parcAtivos();
   const recentes = S.tx.slice(0, 6);
 
-  return `${S.perfis.length < 2 ? `<section class="card">${convidarHTML()}</section>` : ""}
-  <section class="card">
+  return `${S.perfis.length < 2 ? `<section class="card wide">${convidarHTML()}</section>` : ""}
+  <section class="card wide">
     <div class="kpis">
       <div class="kpi"><div class="label">Entrou</div><div class="v pos">${brl(ent)}</div></div>
       <div class="kpi"><div class="label">Saiu</div><div class="v">${brl(sai)}</div></div>
@@ -675,7 +715,7 @@ function vInicio() {
   ${parcs.length ? `<section class="card"><div class="card-h"><h2>Parcelamentos ativos</h2><span class="muted num">${brl(parcs.reduce((s, p) => s + p.restante, 0))} a pagar</span></div>
     <div class="rows">${parcs.map(p => `<button class="row" data-act="edittx" data-id="${esc(p.t.id)}" style="grid-template-columns:minmax(0,1fr) auto"><span style="min-width:0;display:flex;flex-direction:column;gap:6px"><b>${esc(p.desc)} <span class="pill">${p.pagas}/${p.total}</span></b><span class="meter"><i style="width:${p.pagas / p.total * 100}%"></i></span><small>${brl(p.parc)} por mês · termina em ${esc(mesNome(p.fim.slice(0, 7), { month: "short", year: "numeric" }))}</small></span><span class="amt">${brl(p.restante)}</span></button>`).join("")}</div></section>` : ""}
 
-  <section class="card">
+  <section class="card wide">
     <div class="card-h"><h2>Últimos lançamentos</h2><button class="btn ghost sm" data-act="go" data-v="lanc">Ver todos</button></div>
     ${recentes.length ? `<div class="rows">${recentes.map(t => rowTx(t, true)).join("")}</div>` : `<div class="empty">Nada lançado ainda. Toque no + para o primeiro.</div>`}
   </section>`;
@@ -757,7 +797,7 @@ function vRel() {
   const D = L.filter(t => t.tipo === "despesa");
   const tabs = [["tudo", "Tudo"], ["casal", "Casal"], ...S.perfis.map(p => [p.id, p.nome])];
   const tabNome = tabs.find(t => t[0] === tab)?.[1] || "Tudo";
-  return `<section class="card">
+  return `<section class="card wide">
     <div class="card-h"><h2>Relatório · ${esc(mesNome(mk))}</h2><button class="btn gold sm noprint" data-act="print">Exportar PDF</button></div>
     <div class="chips noprint">${tabs.map(([k, l]) => `<button class="chip" data-act="reltab" data-k="${esc(k)}" aria-pressed="${tab === k}">${esc(l)}</button>`).join("")}</div>
     <div class="label">${esc(tabNome)}</div>
@@ -766,7 +806,7 @@ function vRel() {
   <section class="card"><h2>Saídas por categoria</h2>${rank(D, t => t.categoria_id || "-", k => cat(k)?.nome || "Sem categoria", k => cat(k)?.cor || "#6b6453")}</section>
   <section class="card"><h2>Por forma de pagamento</h2>${rank(D, t => t.forma || "Não informado", k => k, () => "var(--gold)")}</section>
   ${D.some(t => t.cartao_id) ? `<section class="card"><h2>Por cartão</h2>${rank(D.filter(t => t.cartao_id), t => t.cartao_id, k => S.cartoes.find(c => c.id === k)?.nome || "Cartão removido", k => S.cartoes.find(c => c.id === k)?.cor || "var(--gold)")}</section>` : ""}
-  <section class="card"><h2>Todos os lançamentos</h2>${L.length ? `<div class="rows">${L.sort((a, b) => a.data.localeCompare(b.data)).map(t => rowTx(t, true)).join("")}</div>` : `<div class="empty">Nada neste mês.</div>`}</section>`;
+  <section class="card wide"><h2>Todos os lançamentos</h2>${L.length ? `<div class="rows">${L.sort((a, b) => a.data.localeCompare(b.data)).map(t => rowTx(t, true)).join("")}</div>` : `<div class="empty">Nada neste mês.</div>`}</section>`;
 }
 
 function armBtn(key, label, confirmLabel, extra = "") {
@@ -850,7 +890,7 @@ function vPerfil() {
   const p = S.perfil, outro = S.perfis.find(x => x.id !== p.id), pr = p.prefs || {};
   const desde = p.created_at ? new Date(p.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }) : "";
   return `
-  <section class="card">
+  <section class="card wide">
     <div class="hero">${avatar(p, 76)}
       <div style="min-width:0"><div class="who-name">${esc(p.nome)}</div><div class="hint">${esc(S.session.user.email)}${desde ? " · desde " + esc(desde) : ""}</div>
       <div class="actions" style="margin-top:8px"><button class="btn sm" data-act="trocarfoto">${p.foto ? "Trocar foto" : "Adicionar foto"}</button>${p.foto ? `<button class="btn sm ghost" data-act="rmfoto">Remover</button>` : ""}<input type="file" id="p-foto" data-act="avatarfile" accept="image/*" hidden></div></div>
