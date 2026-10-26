@@ -158,6 +158,13 @@ button.row:hover{background:var(--s2)}
 .err{color:var(--red);font-size:.85rem}
 .err:empty{display:none}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.alert{border-radius:12px;padding:10px 12px;font-size:.9rem}
+.alert.ok{background:rgba(92,184,122,.1);border:1px solid rgba(92,184,122,.35);color:#bfe6cc}
+.alert.bad{background:rgba(224,92,92,.12);border:1px solid rgba(224,92,92,.45);color:#ffd2cf}
+.row.ag .amt{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.row.ag .amt small{font-weight:500;font-size:.74rem}
+.row .amt small{display:block}
+.fat{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:.86rem;color:var(--fg2);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .picks{display:flex;flex-direction:column;gap:10px}
 .pick{display:flex;gap:14px;align-items:center;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:16px;width:100%}
 .pick:hover:not(:disabled){border-color:var(--gold)}
@@ -272,7 +279,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1407";
+const APP_VERSION = "2026.10.26-1416";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -393,6 +400,49 @@ function saldoConta(c) {
   while (mk <= end && n++ < 300) { recMes(mk).forEach(v => { if (v.conta_id === c.id && v.data >= from && v.data <= hj) s += sinal(v); }); mk = shiftMk(mk, 1); }
   return s;
 }
+/* ----- faturas e agenda de pagamentos ----- */
+const isoDia = (y, m, d) => { const t = new Date(y, m - 1, 1); const Y = t.getFullYear(), M = t.getMonth() + 1; return Y + "-" + pad(M) + "-" + pad(Math.min(d, lastDay(Y, M))); };
+const dm = iso => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+const diaSeguinte = iso => { const d = new Date(iso + "T12:00"); d.setDate(d.getDate() + 1); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const cartaoOk = c => c.ativo && c.fechamento && c.vencimento;
+// ciclo da fatura que vence em "venc": compras depois do fechamento anterior até o fechamento
+function cicloFatura(c, venc) {
+  const [y, m] = venc.split("-").map(Number);
+  const mf = c.vencimento > c.fechamento ? m : m - 1;
+  return { ate: isoDia(y, mf, c.fechamento), de: isoDia(y, mf - 1, c.fechamento) };
+}
+function fatura(c, venc) {
+  const { de, ate } = cicloFatura(c, venc);
+  const meses = [...new Set([de.slice(0, 7), ate.slice(0, 7)])];
+  const itens = S.tx.filter(t => t.tipo === "despesa" && t.cartao_id === c.id && t.data > de && t.data <= ate)
+    .concat(meses.flatMap(mk => recMes(mk)).filter(t => t.tipo === "despesa" && t.forma === "Crédito" && t.cartao_id === c.id && t.data > de && t.data <= ate));
+  const pago = S.tx.filter(t => t.tipo === "transferencia" && t.cartao_id === c.id && t.obs === "fatura:" + venc.slice(0, 7)).reduce((s, t) => s + t._c, 0);
+  const total = itens.reduce((s, t) => s + t._c, 0);
+  return { c, venc, de, ate, itens, total, pago, falta: Math.max(0, total - pago), aberta: ate >= today() };
+}
+function proximasFaturas(c, ate) {
+  const hj = today(), out = []; let mk = hj.slice(0, 7);
+  for (let i = 0; i < 4; i++, mk = shiftMk(mk, 1)) {
+    const v = isoDia(+mk.slice(0, 4), +mk.slice(5, 7), c.vencimento);
+    if (v >= hj && v <= ate) out.push(fatura(c, v));
+  }
+  return out;
+}
+const saldoTotal = () => S.contas.filter(c => c.ativa).reduce((s, c) => s + saldoConta(c), 0);
+// tudo o que entra e sai de amanhã até "ate" (faturas a partir de hoje), com saldo acumulado
+function agenda(ate) {
+  const hj = today(), ev = [];
+  S.cartoes.filter(cartaoOk).forEach(c => proximasFaturas(c, ate).forEach(f => { if (f.falta > 0) ev.push({ data: f.venc, tipo: "fatura", sai: f.falta, f, desc: "Fatura " + c.nome }); }));
+  const credOk = t => t.forma === "Crédito" && t.cartao_id && S.cartoes.some(c => c.id === t.cartao_id && cartaoOk(c));
+  let mk = hj.slice(0, 7); const fimMk = ate.slice(0, 7);
+  const L = []; while (mk <= fimMk) { L.push(...lanc(mk)); mk = shiftMk(mk, 1); }
+  L.filter(t => t.data > hj && t.data <= ate && t.tipo !== "transferencia" && !credOk(t)).forEach(t => ev.push({ data: t.data, tipo: t.tipo, sai: t.tipo === "despesa" ? t._c : 0, entra: t.tipo === "receita" ? t._c : 0, t, desc: t.descricao }));
+  ev.sort((a, b) => a.data.localeCompare(b.data) || (b.entra || 0) - (a.entra || 0));
+  let saldo = saldoTotal(), min = saldo, minData = hj;
+  ev.forEach(e => { saldo += (e.entra || 0) - (e.sai || 0); e.saldo = saldo; if (saldo < min) { min = saldo; minData = e.data; } });
+  return { ev, inicio: saldoTotal(), fim: saldo, min, minData, ate };
+}
+
 function parcAtivos() {
   const g = {}, hj = today();
   S.tx.forEach(t => { if (t.grupo && t.parcelas > 1) (g[t.grupo] = g[t.grupo] || []).push(t); });
@@ -651,9 +701,35 @@ function render() {
 }
 
 /* ===================== Início ===================== */
+let AGENDA_TUDO = false;
+function vAgenda() {
+  const hj = today();
+  const fimProx = (() => { const d = new Date(+hj.slice(0, 4), +hj.slice(5, 7) + 1, 0); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); })();
+  const A = agenda(fimProx), semCiclo = S.cartoes.filter(c => c.ativo && !(c.fechamento && c.vencimento));
+  const falta = A.min < 0;
+  const status = !S.contas.length ? `<div class="hint">Cadastre as contas com o saldo de hoje em <b>Mais → Contas</b> para a previsão começar do valor certo.</div>` :
+    falta ? `<div class="alert bad"><b>Vai faltar ${brl(-A.min)}</b> em ${dm(A.minData)}. Reveja os gastos ou adiante uma entrada.</div>`
+          : `<div class="alert ok"><b>O dinheiro cobre tudo até ${dm(fimProx)}.</b> Menor saldo previsto: ${brl(A.min)} em ${dm(A.minData)}.</div>`;
+  const lista = AGENDA_TUDO ? A.ev : A.ev.slice(0, 6);
+  const linha = e => {
+    const pill = e.tipo === "fatura" ? `<span class="pill">fatura${e.f.aberta ? " aberta" : ""}</span>` : e.t?.parcelas > 1 ? `<span class="pill">${e.t.parcela}/${e.t.parcelas}</span>` : e.t?.virtual ? `<span class="pill p">${e.tipo === "receita" ? "todo mês" : "fixo"}</span>` : "";
+    const sub = e.tipo === "fatura" ? `vence ${dm(e.data)} · ${e.f.aberta ? "fecha " + dm(e.f.ate) + ", ainda pode subir" : "fechada"}${e.f.pago ? " · já pago " + brl(e.f.pago) : ""}` : `${esc(diaNome(e.data))} · ${esc(cat(e.t.categoria_id)?.nome || e.t.forma || "")}`;
+    return `<div class="row ag"><span class="tag" style="background:${e.tipo === "receita" ? "var(--green)" : e.tipo === "fatura" ? esc(e.f.c.cor) : esc(cat(e.t.categoria_id)?.cor || "var(--fg3)")}"></span>
+      <span style="min-width:0"><b>${esc(e.desc)}${pill}</b><small>${sub}</small>${e.tipo === "fatura" ? `<span class="actions" style="margin-top:6px"><button class="btn sm" data-act="pagarfat" data-card="${e.f.c.id}" data-venc="${e.f.venc}">Pagar fatura</button>${e.f.itens.length ? `<button class="btn sm ghost" data-act="verfat" data-card="${e.f.c.id}" data-venc="${e.f.venc}">Ver compras (${e.f.itens.length})</button>` : ""}</span>` : ""}</span>
+      <span class="amt"><span class="${e.entra ? "pos" : ""}">${e.entra ? "+ " + brl(e.entra) : "− " + brl(e.sai)}</span><small class="num ${e.saldo < 0 ? "neg" : "dim"}">saldo ${brl(e.saldo)}</small></span></div>`;
+  };
+  return `<section class="card wide">
+    <div class="card-h"><h2>Próximos pagamentos</h2><span class="muted">até ${dm(fimProx)}</span></div>
+    <div class="kpis"><div class="kpi"><div class="label">Nas contas hoje</div><div class="v">${brl(A.inicio)}</div></div><div class="kpi"><div class="label">A pagar</div><div class="v neg">${brl(A.ev.reduce((s, e) => s + (e.sai || 0), 0))}</div></div><div class="kpi big"><div class="label">Previsto em ${dm(fimProx)}</div><div class="v" style="${A.fim < 0 ? "color:var(--red)" : ""}">${brl(A.fim)}</div></div></div>
+    ${status}
+    ${A.ev.length ? `<div class="rows">${lista.map(linha).join("")}</div>${A.ev.length > 6 ? `<button class="btn ghost sm" data-act="agendatudo" style="align-self:flex-start">${AGENDA_TUDO ? "Mostrar menos" : "Ver todos (" + A.ev.length + ")"}</button>` : ""}` : `<div class="empty">Nada previsto até ${dm(fimProx)}.</div>`}
+    ${semCiclo.length ? `<div class="hint">Defina fechamento e vencimento de ${semCiclo.map(c => esc(c.nome)).join(", ")} em <b>Mais → Cartões</b> para a fatura entrar aqui.</div>` : ""}
+  </section>`;
+}
+
 function rowTx(t, showDate = false) {
   if (t.tipo === "transferencia") {
-    const de = S.contas.find(x => x.id === t.conta_id)?.nome || "?", para = S.contas.find(x => x.id === t.conta_destino_id)?.nome || "?";
+    const de = S.contas.find(x => x.id === t.conta_id)?.nome || "?", para = t.cartao_id ? "fatura " + (S.cartoes.find(x => x.id === t.cartao_id)?.nome || "cartão") : (S.contas.find(x => x.id === t.conta_destino_id)?.nome || "?");
     return `<button class="row" data-act="edittx" data-id="${esc(t.id)}"><span class="tag" style="background:var(--gold)"></span>
     <span style="min-width:0"><b>${esc(t.descricao)}<span class="pill">transferência</span></b><small>${showDate ? esc(diaNome(t.data)) + " · " : ""}${esc(de)} → ${esc(para)} · <span class="who" style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span></small></span>
     <span class="amt muted">⇄ ${brl(t._c)}</span></button>`;
@@ -713,6 +789,8 @@ function vInicio() {
     ${linhaHoje ? `<div class="today">${esc(linhaHoje)}</div>` : ""}
     ${S.casal?.meta_mensal > 0 ? (() => { const meta = C(S.casal.meta_mensal), pct = Math.round(sai / meta * 100), cor = pct > 100 ? "var(--red)" : pct >= 80 ? "var(--gold)" : "var(--green)"; return `<div class="today" style="display:grid;gap:6px"><div class="card-h"><span>Meta de gastos: ${brl(meta)}</span><span class="num" style="color:${cor};font-weight:600">${OCULTO ? "" : pct + "%"}</span></div><span class="meter"><i style="width:${Math.min(100, pct)}%;background:${cor}"></i></span>${pct > 100 ? `<span class="neg">Passou ${brl(sai - meta)} da meta.</span>` : `<span>Ainda cabem ${brl(meta - sai)} este mês.</span>`}</div>`; })() : ""}
   </section>
+
+  ${vAgenda()}
 
   <section class="card">
     <div class="card-h"><h2>Onde está o dinheiro</h2>${contas.length ? `<span class="serif" style="font-size:1.3rem;color:var(--gold2)">${brl(totContas)}</span>` : ""}</div>
@@ -864,10 +942,13 @@ function vCartoes() {
     </div><button class="btn gold" type="submit">Adicionar cartão</button></form></section>
   <section class="card"><div class="card-h"><h2>Cartões · ${esc(mesNome(mk, { month: "short", year: "numeric" }))}</h2></div>${S.cartoes.length ? `<div class="rows">${S.cartoes.map(c => {
       const mes = lanc(mk).filter(t => t.tipo === "despesa" && t.cartao_id === c.id), tot = soma(mes);
-      const fut = S.tx.filter(t => t.cartao_id === c.id && t.data >= fim).reduce((s, t) => s + t._c, 0);
+      const fut = S.tx.filter(t => t.cartao_id === c.id && t.tipo === "despesa" && t.data >= fim).reduce((s, t) => s + t._c, 0);
+      const pf = cartaoOk(c) ? proximasFaturas(c, addMonths(today(), 2))[0] : null;
+      const linhaFat = pf ? `<div class="fat"><span>Próxima fatura <b class="num">${brl(pf.total)}</b> · vence ${dm(pf.venc)}${pf.aberta ? " · fecha " + dm(pf.ate) : ""}${pf.pago ? ` · <span class="pos">pago ${brl(pf.pago)}</span>` : ""}</span>${pf.falta > 0 ? `<button class="btn sm" data-act="pagarfat" data-card="${c.id}" data-venc="${pf.venc}">Pagar</button>` : ""}</div>` : `<div class="hint">Sem dia de fechamento e vencimento: a fatura não entra na previsão.</div>`;
       return `<div class="row"><span class="tag" style="background:${esc(c.cor)}"></span><span style="min-width:0"><b>${esc(c.nome)}${c.final ? ` <span class="dim num" style="font-weight:400">··${esc(c.final)}</span>` : ""}</b>
       <small>${esc(pessoaNome(c.pessoa_id))} · ${mes.length} ${mes.length === 1 ? "lançamento" : "lançamentos"}${c.fechamento ? " · fecha dia " + c.fechamento : ""}${c.vencimento ? " · vence dia " + c.vencimento : ""}${fut ? " · " + brl(fut) + " nos próximos meses" : ""}</small>
-      <span class="actions" style="margin-top:8px">${armBtn("cartao:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt">${brl(tot)}</span></div>`; }).join("")}</div>` : `<div class="empty">Nenhum cartão ainda.</div>`}</section>`;
+      ${linhaFat}
+      <span class="actions" style="margin-top:8px">${armBtn("cartao:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt">${brl(tot)}<small class="dim" style="font-weight:400">no mês</small></span></div>`; }).join("")}</div>` : `<div class="empty">Nenhum cartão ainda.</div>`}</section>`;
 }
 
 function vRec() {
@@ -1254,6 +1335,32 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  agendatudo: () => { AGENDA_TUDO = !AGENDA_TUDO; render(); },
+  verfat: a => {
+    const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
+    openSheet(`Fatura ${c.nome}`, `<div class="hint">Compras de ${dm(diaSeguinte(f.de))} a ${dm(f.ate)} · vence ${dm(f.venc)}</div>
+      <div class="rows">${f.itens.sort((x, y) => x.data.localeCompare(y.data)).map(t => rowTx(t, true)).join("")}</div>
+      <div class="card-h" style="margin-top:12px"><b>Total</b><span class="serif" style="font-size:1.4rem;color:var(--gold2)">${brl(f.total)}</span></div>`);
+  },
+  pagarfat: a => {
+    const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
+    if (!S.contas.some(x => x.ativa)) return toast("Cadastre uma conta em Mais → Contas para pagar a fatura.", true);
+    const conta = (S.contas.find(x => x.ativa && x.pessoa_id === c.pessoa_id) || S.contas.find(x => x.ativa)).id;
+    openSheet(`Pagar fatura ${c.nome}`, `<form class="form" id="pff" novalidate>
+      <div class="hint">Fatura que vence em ${dm(f.venc)}: ${brl(f.total)}${f.pago ? `, já pago ${brl(f.pago)}` : ""}. O pagamento sai da conta, mas não conta como gasto de novo (as compras já foram contadas).</div>
+      <label class="f"><span>Valor pago</span><input id="pf-v" class="big num money" inputmode="numeric" value="${fmtMoney(f.falta)}"></label>
+      <div class="g2"><label class="f"><span>Data</span><input id="pf-d" type="date" value="${today()}"></label>
+      <label class="f"><span>Saiu da conta</span><select id="pf-c">${S.contas.filter(x => x.ativa).map(x => opt(x.id, x.nome, x.id === conta)).join("")}</select></label></div>
+      <div class="err" id="pf-err"></div><button class="btn gold" type="submit">Registrar pagamento</button></form>`, root => {
+      $("#pff", root).addEventListener("submit", async e => {
+        e.preventDefault(); const v = parseMoney($("#pf-v", root).value), err = $("#pf-err", root);
+        if (!(v > 0)) { err.textContent = "Coloque o valor pago."; return; }
+        const { error } = await sb.from("transacoes").insert({ tipo: "transferencia", descricao: "Fatura " + c.nome, valor: R(v), data: $("#pf-d", root).value || today(), conta_id: $("#pf-c", root).value, conta_destino_id: null, cartao_id: c.id, forma: "Pagamento de fatura", obs: "fatura:" + f.venc.slice(0, 7), pessoa_id: S.perfil.id });
+        if (error) { err.textContent = /check constraint|schema cache/i.test(error.message) ? "Falta rodar o atualizacao-transferencias.sql no Supabase." : "Não salvou: " + error.message; return; }
+        closeSheet(); await LOAD.transacoes(); render(); toast("Pagamento da fatura registrado.");
+      });
+    });
+  },
   transferir: () => openTx(null, { tipo: "transferencia" }),
   sinal: a => { const i = a.closest("form").querySelector(".money"); i.value = i.value.startsWith("-") ? i.value.slice(1) : "-" + i.value; },
   notifon: a => ativarNotif(a),
