@@ -299,7 +299,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1436";
+const APP_VERSION = "2026.10.26-1453";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -805,10 +805,11 @@ function vInicio() {
 
   return `${S.perfis.length < 2 ? `<section class="card wide">${convidarHTML()}</section>` : ""}
   <section class="card wide">
+    <div class="label" style="margin-bottom:-4px">Resumo de ${esc(mesNome(S.mes, { month: "long" }))}</div>
     <div class="kpis">
-      <div class="kpi"><div class="label">Entrou</div><div class="v pos">${brl(ent)}</div></div>
-      <div class="kpi"><div class="label">Saiu</div><div class="v">${brl(sai)}</div></div>
-      <div class="kpi big"><div class="label">${saldo < 0 ? "Falta" : "Sobra"}</div><div class="v" style="${saldo < 0 ? "color:var(--red)" : ""}">${brl(Math.abs(saldo))}</div></div>
+      <div class="kpi"><div class="label">Entradas</div><div class="v pos">${brl(ent)}</div></div>
+      <div class="kpi"><div class="label">Saídas</div><div class="v">${brl(sai)}</div></div>
+      <div class="kpi big"><div class="label">Saldo do mês</div><div class="v" style="${saldo < 0 ? "color:var(--red)" : ""}">${saldo < 0 ? "−" : ""}${brl(Math.abs(saldo))}</div></div>
     </div>
     ${linhaHoje ? `<div class="today">${esc(linhaHoje)}</div>` : ""}
     ${S.casal?.meta_mensal > 0 ? (() => { const meta = C(S.casal.meta_mensal), pct = Math.round(sai / meta * 100), cor = pct > 100 ? "var(--red)" : pct >= 80 ? "var(--gold)" : "var(--green)"; return `<div class="today" style="display:grid;gap:6px"><div class="card-h"><span>Meta de gastos: ${brl(meta)}</span><span class="num" style="color:${cor};font-weight:600">${OCULTO ? "" : pct + "%"}</span></div><span class="meter"><i style="width:${Math.min(100, pct)}%;background:${cor}"></i></span>${pct > 100 ? `<span class="neg">Passou ${brl(sai - meta)} da meta.</span>` : `<span>Ainda cabem ${brl(meta - sai)} este mês.</span>`}</div>`; })() : ""}
