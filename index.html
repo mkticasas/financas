@@ -158,6 +158,8 @@ button.row:hover{background:var(--s2)}
 .err{color:var(--red);font-size:.85rem}
 .err:empty{display:none}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg.seg3{grid-template-columns:repeat(3,1fr)}
+.seg button[data-tipo="transferencia"][aria-pressed="true"]{color:var(--gold2)}
 .seg button{border:0;background:none;padding:9px;border-radius:9px;font-weight:600;color:var(--fg2)}
 .seg button[aria-pressed="true"]{background:var(--s2);color:var(--fg)}
 .seg button[data-tipo="despesa"][aria-pressed="true"]{color:var(--red)}
@@ -262,7 +264,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1352";
+const APP_VERSION = "2026.10.26-1402";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -362,7 +364,7 @@ const pessoa = id => S.perfis.find(p => p.id === id);
 const pessoaNome = id => pessoa(id)?.nome || "Casal";
 const pessoaCor = id => pessoa(id)?.cor || "var(--gold)";
 const cat = id => S.cats.find(c => c.id === id);
-const sinal = t => t.tipo === "receita" ? t._c : -t._c;
+const sinal = t => t.tipo === "receita" ? t._c : t.tipo === "transferencia" ? 0 : -t._c;
 
 function recMes(mk) {
   const [y, m] = mk.split("-").map(Number); const ld = lastDay(y, m);
@@ -374,7 +376,11 @@ const soma = (arr, tipo) => arr.filter(t => !tipo || t.tipo === tipo).reduce((s,
 
 function saldoConta(c) {
   let s = c._c; const from = c.saldo_data, hj = today();
-  S.tx.forEach(t => { if (t.conta_id === c.id && t.data >= from && t.data <= hj) s += sinal(t); });
+  S.tx.forEach(t => {
+    if (t.data < from || t.data > hj) return;
+    if (t.tipo === "transferencia") { if (t.conta_id === c.id) s -= t._c; if (t.conta_destino_id === c.id) s += t._c; }
+    else if (t.conta_id === c.id) s += sinal(t);
+  });
   let mk = from.slice(0, 7), n = 0; const end = hj.slice(0, 7);
   while (mk <= end && n++ < 300) { recMes(mk).forEach(v => { if (v.conta_id === c.id && v.data >= from && v.data <= hj) s += sinal(v); }); mk = shiftMk(mk, 1); }
   return s;
@@ -579,7 +585,7 @@ function subscribe() {
   Object.keys(LOAD).forEach(t => channel.on("postgres_changes", { event: "*", schema: "public", table: t, filter: "casal_id=eq." + S.perfil.casal_id }, pl => {
     queue(t);
     const n = pl?.new;
-    if (t === "transacoes" && pl.eventType === "INSERT" && n && n.criado_por && n.criado_por !== S.perfil.id && (!n.parcela || n.parcela === 1)) {
+    if (t === "transacoes" && pl.eventType === "INSERT" && n && n.tipo !== "transferencia" && n.criado_por && n.criado_por !== S.perfil.id && (!n.parcela || n.parcela === 1)) {
       const v = C(n.parcelas > 1 ? n.valor_total : n.valor);
       toast(`${pessoaNome(n.criado_por)} lançou ${n.tipo === "receita" ? "uma entrada de " : ""}${brl(v)}${n.parcelas > 1 ? ` em ${n.parcelas}x` : ""} · ${n.descricao}`);
     }
@@ -638,6 +644,12 @@ function render() {
 
 /* ===================== Início ===================== */
 function rowTx(t, showDate = false) {
+  if (t.tipo === "transferencia") {
+    const de = S.contas.find(x => x.id === t.conta_id)?.nome || "?", para = S.contas.find(x => x.id === t.conta_destino_id)?.nome || "?";
+    return `<button class="row" data-act="edittx" data-id="${esc(t.id)}"><span class="tag" style="background:var(--gold)"></span>
+    <span style="min-width:0"><b>${esc(t.descricao)}<span class="pill">transferência</span></b><small>${showDate ? esc(diaNome(t.data)) + " · " : ""}${esc(de)} → ${esc(para)} · <span class="who" style="color:${esc(pessoaCor(t.pessoa_id))}">${esc(pessoaNome(t.pessoa_id))}</span></small></span>
+    <span class="amt muted">⇄ ${brl(t._c)}</span></button>`;
+  }
   const c = cat(t.categoria_id);
   const meio = t.forma === "Crédito" ? (S.cartoes.find(x => x.id === t.cartao_id)?.nome || "") : (S.contas.find(x => x.id === t.conta_id)?.nome || "");
   return `<button class="row" data-act="${t.virtual ? "editrec" : "edittx"}" data-id="${esc(t.virtual ? t.recId : t.id)}">
@@ -696,6 +708,7 @@ function vInicio() {
 
   <section class="card">
     <div class="card-h"><h2>Onde está o dinheiro</h2>${contas.length ? `<span class="serif" style="font-size:1.3rem;color:var(--gold2)">${brl(totContas)}</span>` : ""}</div>
+    ${contas.length > 1 ? `<button class="btn sm ghost" data-act="transferir" style="align-self:flex-start">⇄ Transferir entre contas</button>` : ""}
     ${contas.length ? `<div class="rows">${contas.map(c => { const s = saldoConta(c); return `<div class="row"><span class="tag" style="background:${esc(pessoaCor(c.pessoa_id))}"></span><span><b>${esc(c.nome)}</b><small>${esc(TIPOS_CONTA[c.tipo] || c.tipo)}${c.banco ? " · " + esc(c.banco) : ""} · ${esc(pessoaNome(c.pessoa_id))}</small></span><span class="amt ${s < 0 ? "neg" : ""}">${brl(s)}</span></div>`; }).join("")}</div>`
       : `<div class="empty">Cadastre suas contas para ver quanto vocês têm de verdade.<br><br><button class="btn sm" data-act="go" data-v="mais" data-s="contas">Cadastrar contas</button></div>`}
   </section>
@@ -733,7 +746,7 @@ function vLanc() {
   const chip = (k, v, l) => `<button class="chip" data-act="filt" data-k="${k}" data-val="${esc(v)}" aria-pressed="${f[k] === v}">${esc(l)}</button>`;
   return `<section class="card">
     <div class="card-h"><h2>Lançamentos</h2><span class="muted num">${L.length} itens · ${brl(soma(L, "receita") - soma(L, "despesa"))}</span></div>
-    <div class="chips">${chip("tipo", "", "Tudo")}${chip("tipo", "despesa", "Saídas")}${chip("tipo", "receita", "Entradas")}</div>
+    <div class="chips">${chip("tipo", "", "Tudo")}${chip("tipo", "despesa", "Saídas")}${chip("tipo", "receita", "Entradas")}${S.contas.length > 1 ? chip("tipo", "transferencia", "Transferências") : ""}</div>
     <div class="chips">${chip("pessoa", "", "Todos")}${chip("pessoa", "casal", "Casal")}${S.perfis.map(p => chip("pessoa", p.id, p.nome)).join("")}
       <select data-act="filtcat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option>${S.cats.map(c => opt(c.id, c.nome, f.cat === c.id)).join("")}</select></div>
     ${L.length ? Object.entries(dias).map(([d, a]) => `<div class="day"><div class="day-h"><span>${esc(diaNome(d))}</span><span class="num">${brl(a.reduce((s, t) => s + sinal(t), 0))}</span></div><div class="rows">${a.map(t => rowTx(t)).join("")}</div></div>`).join("")
@@ -824,7 +837,7 @@ function vContas() {
       <label class="f"><span>De quem</span><select name="pessoa">${pOpts}</select></label>
       <label class="f"><span>Saldo hoje (R$)</span><input name="saldo" inputmode="numeric" class="money" placeholder="0,00"></label>
     </div><button class="btn gold" type="submit">Adicionar conta</button></form></section>
-  <section class="card"><h2>Contas</h2>${S.contas.length ? `<div class="rows">${S.contas.map(c => { const s = saldoConta(c); return `<div class="row" style="grid-template-columns:4px minmax(0,1fr) auto"><span class="tag" style="background:${esc(pessoaCor(c.pessoa_id))}"></span><span style="min-width:0"><b>${esc(c.nome)}</b><small>${esc(TIPOS_CONTA[c.tipo] || c.tipo)}${c.banco ? " · " + esc(c.banco) : ""} · ${esc(pessoaNome(c.pessoa_id))}</small>
+  <section class="card"><div class="card-h"><h2>Contas</h2>${S.contas.length > 1 ? `<button class="btn sm" data-act="transferir">⇄ Transferir</button>` : ""}</div>${S.contas.length ? `<div class="rows">${S.contas.map(c => { const s = saldoConta(c); return `<div class="row" style="grid-template-columns:4px minmax(0,1fr) auto"><span class="tag" style="background:${esc(pessoaCor(c.pessoa_id))}"></span><span style="min-width:0"><b>${esc(c.nome)}</b><small>${esc(TIPOS_CONTA[c.tipo] || c.tipo)}${c.banco ? " · " + esc(c.banco) : ""} · ${esc(pessoaNome(c.pessoa_id))}</small>
       <span class="actions" style="margin-top:8px"><button class="btn sm ghost" data-act="ajsaldo" data-id="${c.id}">Ajustar saldo</button>${armBtn("conta:" + c.id, "Remover", "Confirmar remoção")}</span></span><span class="amt ${s < 0 ? "neg" : ""}">${brl(s)}</span></div>`; }).join("")}</div>
       <div class="hint">Saldo = valor informado + entradas − saídas lançadas nessa conta (Pix, débito, dinheiro, boleto). Compras no crédito entram quando vocês lançarem o pagamento da fatura.</div>` : `<div class="empty">Nenhuma conta ainda.</div>`}</section>`;
 }
@@ -1004,15 +1017,17 @@ function openTx(t = null, preset = {}, onSaved = null) {
   const grp = ed && t.grupo;
   const html = `<form id="txf" class="form" novalidate>
     ${ed ? "" : `<div class="ai"><button type="button" class="btn ai-btn" data-act="foto">Ler comprovante por foto</button><input type="file" id="t-file" accept="image/*" hidden><div class="ai-step" id="t-step">Tire uma foto ou escolha da galeria. Você confere tudo antes de salvar.</div></div>`}
-    <div class="seg"><button type="button" data-tipo="despesa" aria-pressed="${v.tipo === "despesa"}">Despesa</button><button type="button" data-tipo="receita" aria-pressed="${v.tipo === "receita"}">Receita</button></div>
+    <div class="seg seg3"><button type="button" data-tipo="despesa" aria-pressed="${v.tipo === "despesa"}">Despesa</button><button type="button" data-tipo="receita" aria-pressed="${v.tipo === "receita"}">Receita</button><button type="button" data-tipo="transferencia" aria-pressed="${v.tipo === "transferencia"}">Transferir</button></div>
+    <div class="hint" id="t-trhint" hidden>Move dinheiro de uma conta para outra. Não conta como gasto nem como entrada.</div>
     <label class="f" id="w-valor"><span>Valor ${grp ? "desta parcela" : "(total)"}</span><input id="t-valor" class="big num money" inputmode="numeric" placeholder="0,00" value="${v._c ? fmtMoney(v._c) : ""}"></label>
     <label class="f" id="w-desc"><span>Descrição</span><input id="t-desc" value="${esc(v.descricao)}" placeholder="Ex.: Mercado Tauste"></label>
     <div class="g2">
       <label class="f" id="w-data"><span>Data</span><input id="t-data" type="date" value="${esc(v.data)}"></label>
       <label class="f" id="w-categoria"><span>Categoria</span><select id="t-cat">${catOpts(v.tipo, v.categoria_id)}</select></label>
-      <label class="f"><span>Quem</span><select id="t-pessoa">${pessoaOpts(v.pessoa_id)}</select></label>
+      <label class="f" id="w-pessoa"><span>Quem</span><select id="t-pessoa">${pessoaOpts(v.pessoa_id)}</select></label>
       <label class="f" id="w-forma"><span>Pagamento</span><select id="t-forma">${FORMAS.map(f => opt(f, f, f === v.forma)).join("")}</select></label>
-      <label class="f" id="t-wconta"><span>Conta</span><select id="t-conta">${contaOpts(v.conta_id)}</select></label>
+      <label class="f" id="t-wconta"><span id="t-lconta">Conta</span><select id="t-conta">${contaOpts(v.conta_id)}</select></label>
+      <label class="f" id="t-wdest" hidden><span>Para a conta</span><select id="t-dest">${contaOpts(v.conta_destino_id || (S.contas.find(c => c.ativa && c.id !== v.conta_id)?.id || ""))}</select></label>
       <label class="f" id="t-wcartao"><span>Cartão</span><select id="t-cartao">${cartaoOpts(v.cartao_id)}</select></label>
       ${ed ? "" : `<label class="f" id="t-wparc"><span>Parcelas</span><select id="t-parc">${Array.from({ length: 24 }, (_, i) => opt(i + 1, i ? `${i + 1}x` : "À vista", i + 1 === (v.parcelas || 1))).join("")}</select></label>`}
     </div>
@@ -1025,18 +1040,46 @@ function openTx(t = null, preset = {}, onSaved = null) {
     <div id="t-del" class="actions"></div>
   </form>`;
   openSheet(ed ? "Editar lançamento" : (v.tipo === "receita" ? "Nova entrada" : "Novo lançamento"), html, root => {
-    bindTipo(root, "t");
+    bindTipo(root, "t", () => modoTx(root));
     bindPagamento(root, "t");
+    $("#t-forma", root).addEventListener("change", () => modoTx(root));
+    modoTx(root);
     ["t-valor", "t-data", "t-parc"].forEach(id => $("#" + id, root)?.addEventListener("input", () => prevParc(root, "t")));
     $("#t-file", root)?.addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) lerFoto(f, root); });
     $("#txf", root).addEventListener("submit", e => { e.preventDefault(); saveTx(root); });
   });
 }
+function modoTx(root) {
+  const tr = CUR.tipo === "transferencia", cred = $("#t-forma", root).value === "Crédito";
+  ["w-categoria", "w-forma", "t-wcartao", "t-wparc", "t-prev"].forEach(id => { const el = $("#" + id, root); if (el && tr) el.hidden = true; });
+  if (!tr) { $("#w-categoria", root).hidden = false; $("#w-forma", root).hidden = false; $("#t-wcartao", root).hidden = !cred; const wp = $("#t-wparc", root); if (wp) wp.hidden = !cred; $("#t-prev", root).hidden = false; }
+  $("#t-wconta", root).hidden = tr ? false : cred;
+  $("#t-wdest", root).hidden = !tr;
+  $("#t-trhint", root).hidden = !tr;
+  const ai = $(".ai", root); if (ai) ai.hidden = tr;
+  $("#t-lconta", root).textContent = tr ? "Da conta" : "Conta";
+  if (!CUR.t) { $("#w-valor span", root).textContent = tr ? "Valor" : "Valor (total)"; root.querySelector("[type=submit]").textContent = tr ? "Transferir" : "Lançar"; }
+  $("#t-desc", root).placeholder = tr ? "Ex.: Guardar na caixinha" : "Ex.: Mercado Tauste";
+}
 async function saveTx(root) {
   const err = $("#t-err", root); err.textContent = "";
-  const c = parseMoney($("#t-valor", root).value), desc = $("#t-desc", root).value.trim(), data = $("#t-data", root).value;
+  const tr = CUR.tipo === "transferencia";
+  const c = parseMoney($("#t-valor", root).value), desc = $("#t-desc", root).value.trim() || (tr ? "Transferência" : ""), data = $("#t-data", root).value;
   if (!(c > 0)) { err.textContent = "Coloque um valor válido, como 45,90."; return; }
   if (!desc) { err.textContent = "Coloque uma descrição."; return; }
+  if (tr) {
+    const de = $("#t-conta", root).value, para = $("#t-dest", root).value;
+    if (S.contas.length < 2) { err.textContent = "Cadastre pelo menos duas contas em Mais → Contas."; return; }
+    if (!de || !para) { err.textContent = "Escolha a conta de origem e a de destino."; return; }
+    if (de === para) { err.textContent = "Escolha contas diferentes."; return; }
+    if (!data) { err.textContent = "Escolha a data."; return; }
+    const row = { tipo: "transferencia", descricao: desc, valor: R(c), data, conta_id: de, conta_destino_id: para, pessoa_id: $("#t-pessoa", root).value || null, forma: "Transferência", categoria_id: null, cartao_id: null, obs: $("#t-obs", root).value.trim() || null };
+    const btn = root.querySelector("[type=submit]"); btn.disabled = true;
+    const { error } = CUR.t ? await sb.from("transacoes").update(row).eq("id", CUR.t.id) : await sb.from("transacoes").insert(row);
+    btn.disabled = false;
+    if (error) { err.textContent = /conta_destino|check constraint|schema cache/i.test(error.message) ? "Falta rodar o atualizacao-transferencias.sql no Supabase." : "Não salvou: " + error.message; return; }
+    closeSheet(); await LOAD.transacoes(); render(); toast(CUR.t ? "Transferência atualizada." : "Transferência feita."); return;
+  }
   if (!data) { err.textContent = "Escolha a data."; return; }
   const forma = $("#t-forma", root).value, cred = forma === "Crédito";
   const base = { tipo: CUR.tipo, descricao: desc, categoria_id: $("#t-cat", root).value || null, pessoa_id: $("#t-pessoa", root).value || null, forma, conta_id: cred ? null : ($("#t-conta", root).value || null), cartao_id: cred ? ($("#t-cartao", root).value || null) : null, obs: $("#t-obs", root).value.trim() || null };
@@ -1189,6 +1232,7 @@ const ACT = {
   filt: a => { S.filt[a.dataset.k] = a.dataset.val; render(); },
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
+  transferir: () => openTx(null, { tipo: "transferencia" }),
   sinal: a => { const i = a.closest("form").querySelector(".money"); i.value = i.value.startsWith("-") ? i.value.slice(1) : "-" + i.value; },
   notifon: a => ativarNotif(a),
   notifoff: () => desativarNotif(),

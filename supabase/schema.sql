@@ -73,7 +73,7 @@ create table if not exists public.cartoes (
 create table if not exists public.transacoes (
   id uuid primary key default gen_random_uuid(),
   casal_id uuid not null default public.meu_casal() references public.casais on delete cascade,
-  tipo text not null check (tipo in ('despesa','receita')),
+  tipo text not null check (tipo in ('despesa','receita','transferencia')),
   descricao text not null,
   valor numeric(12,2) not null check (valor >= 0),
   data date not null,
@@ -81,6 +81,7 @@ create table if not exists public.transacoes (
   pessoa_id uuid references public.perfis on delete set null,   -- null = casal / juntos
   forma text,
   conta_id uuid references public.contas on delete set null,
+  conta_destino_id uuid references public.contas on delete set null,  -- transferência
   cartao_id uuid references public.cartoes on delete set null,
   parcela int,
   parcelas int,
