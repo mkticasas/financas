@@ -299,7 +299,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1430";
+const APP_VERSION = "2026.10.26-1436";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -741,7 +741,7 @@ function vAgenda() {
   const lista = AGENDA_TUDO ? A.ev : A.ev.slice(0, 4);
   const linha = e => {
     const act = e.tipo === "fatura" ? `data-act="fatopts" data-card="${e.f.c.id}" data-venc="${e.f.venc}"` : `data-act="${e.t.virtual ? "editrec" : "edittx"}" data-id="${esc(e.t.virtual ? e.t.recId : e.t.id)}"`;
-    return `<button class="row ag2" ${act}><span class="dt num">${dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : ""}${brl(e.entra || e.sai)}</span></button>`;
+    return `<button class="row ag2" ${act}><span class="dt num">${dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : "− "}${brl(e.entra || e.sai)}</span></button>`;
   };
   return `<section class="card">
     <div class="card-h"><h2>Próximos pagamentos</h2>${A.ev.length > 4 ? `<button class="btn ghost sm" data-act="agendatudo">${AGENDA_TUDO ? "Menos" : "Ver todos"}</button>` : ""}</div>
