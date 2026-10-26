@@ -165,6 +165,22 @@ button.row:hover{background:var(--s2)}
 .row.ag .amt small{font-weight:500;font-size:.74rem}
 .row .amt small{display:block}
 .fat{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:.86rem;color:var(--fg2);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
+.resumo b{color:var(--fg);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.ok{background:var(--green)} .dot.bad{background:var(--red)}
+.row.ag2{grid-template-columns:3.2rem minmax(0,1fr) auto;padding:10px 0}
+.row.ag2 .dt{font-size:.8rem;color:var(--fg3)}
+.row.ag2 b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dial-bg{position:fixed;inset:0;z-index:34;background:rgba(0,0,0,.45)}
+.dial{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(98px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;gap:6px;background:var(--s1);border:1px solid var(--line);border-radius:22px;padding:12px 10px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.dial button{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;color:var(--fg2);font-size:.72rem;font-weight:600;width:66px;padding:2px 0}
+.dial button:disabled{opacity:.4}
+.dial .ico{width:48px;height:48px;border-radius:50%;display:grid;place-items:center}
+.dial .ico svg{width:22px;height:22px}
+.nav .plus svg{transition:transform .2s}
+.nav .plus.open svg{transform:rotate(45deg)}
+@media (prefers-reduced-motion:no-preference){.dial:not([hidden]){animation:pop .16s ease-out}@keyframes pop{from{opacity:0;transform:translate(-50%,8px)}}}
 .picks{display:flex;flex-direction:column;gap:10px}
 .pick{display:flex;gap:14px;align-items:center;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:16px;width:100%}
 .pick:hover:not(:disabled){border-color:var(--gold)}
@@ -260,6 +276,8 @@ button.row:hover{background:var(--s2)}
   .upd{bottom:28px;left:calc(50% + 120px)}
   main.view-compras section[style*="sticky"]{bottom:16px!important}
   .sheet{max-width:620px}
+  .dial{left:254px;top:84px;bottom:auto;transform:none}
+  .dial:not([hidden]){animation:none}
 }
 @media print{
   :root{color-scheme:light}
@@ -279,7 +297,7 @@ button.row:hover{background:var(--s2)}
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1416";
+const APP_VERSION = "2026.10.26-1424";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -676,6 +694,14 @@ function shell() {
     <button class="avatar-btn" data-act="go" data-v="mais" data-s="perfil" aria-label="Meu perfil">${avatar(S.perfil, 32)}</button>
   </div></header>
   <main class="wrap" id="view"></main>
+  <div class="dial-bg" id="dial-bg" data-act="dialbg" hidden></div>
+  <div class="dial noprint" id="dial" hidden role="menu" aria-label="Novo lançamento">
+    <button data-act="camera" role="menuitem"><span class="ico" style="color:var(--purple);background:rgba(155,127,224,.16)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Foto</button>
+    <button data-act="escolha" data-tipo="despesa" role="menuitem"><span class="ico" style="color:var(--red);background:rgba(224,92,92,.14)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg></span>Despesa</button>
+    <button data-act="escolha" data-tipo="receita" role="menuitem"><span class="ico" style="color:var(--green);background:rgba(92,184,122,.14)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span>Receita</button>
+    <button data-act="escolha" data-tipo="transferencia" role="menuitem" ${S.contas.filter(c => c.ativa).length < 2 ? "disabled" : ""}><span class="ico" style="color:var(--gold);background:rgba(212,168,75,.15)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-4-4M20 16H6l4 4"/></svg></span>Transferir</button>
+  </div>
+  <input type="file" id="cam-file" accept="image/*" hidden>
   <nav class="nav noprint"><div class="wrap">
     <div class="side-brand">${MARK}<div><b>Finanças a Dois</b><small>${esc(S.casal?.nome || "")}</small></div></div>
     <button data-act="go" data-v="inicio">${ICON.home}Início</button>
@@ -706,24 +732,20 @@ function vAgenda() {
   const hj = today();
   const fimProx = (() => { const d = new Date(+hj.slice(0, 4), +hj.slice(5, 7) + 1, 0); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); })();
   const A = agenda(fimProx), semCiclo = S.cartoes.filter(c => c.ativo && !(c.fechamento && c.vencimento));
-  const falta = A.min < 0;
-  const status = !S.contas.length ? `<div class="hint">Cadastre as contas com o saldo de hoje em <b>Mais → Contas</b> para a previsão começar do valor certo.</div>` :
-    falta ? `<div class="alert bad"><b>Vai faltar ${brl(-A.min)}</b> em ${dm(A.minData)}. Reveja os gastos ou adiante uma entrada.</div>`
-          : `<div class="alert ok"><b>O dinheiro cobre tudo até ${dm(fimProx)}.</b> Menor saldo previsto: ${brl(A.min)} em ${dm(A.minData)}.</div>`;
-  const lista = AGENDA_TUDO ? A.ev : A.ev.slice(0, 6);
+  if (!A.ev.length) return "";
+  const resumo = A.min < 0
+    ? `<span class="dot bad"></span><span>Vai faltar <b class="neg">${brl(-A.min)}</b> em ${dm(A.minData)}</span>`
+    : `<span class="dot ok"></span><span>Cobre tudo · sobra <b>${brl(A.fim)}</b> em ${dm(fimProx)}</span>`;
+  const lista = AGENDA_TUDO ? A.ev : A.ev.slice(0, 4);
   const linha = e => {
-    const pill = e.tipo === "fatura" ? `<span class="pill">fatura${e.f.aberta ? " aberta" : ""}</span>` : e.t?.parcelas > 1 ? `<span class="pill">${e.t.parcela}/${e.t.parcelas}</span>` : e.t?.virtual ? `<span class="pill p">${e.tipo === "receita" ? "todo mês" : "fixo"}</span>` : "";
-    const sub = e.tipo === "fatura" ? `vence ${dm(e.data)} · ${e.f.aberta ? "fecha " + dm(e.f.ate) + ", ainda pode subir" : "fechada"}${e.f.pago ? " · já pago " + brl(e.f.pago) : ""}` : `${esc(diaNome(e.data))} · ${esc(cat(e.t.categoria_id)?.nome || e.t.forma || "")}`;
-    return `<div class="row ag"><span class="tag" style="background:${e.tipo === "receita" ? "var(--green)" : e.tipo === "fatura" ? esc(e.f.c.cor) : esc(cat(e.t.categoria_id)?.cor || "var(--fg3)")}"></span>
-      <span style="min-width:0"><b>${esc(e.desc)}${pill}</b><small>${sub}</small>${e.tipo === "fatura" ? `<span class="actions" style="margin-top:6px"><button class="btn sm" data-act="pagarfat" data-card="${e.f.c.id}" data-venc="${e.f.venc}">Pagar fatura</button>${e.f.itens.length ? `<button class="btn sm ghost" data-act="verfat" data-card="${e.f.c.id}" data-venc="${e.f.venc}">Ver compras (${e.f.itens.length})</button>` : ""}</span>` : ""}</span>
-      <span class="amt"><span class="${e.entra ? "pos" : ""}">${e.entra ? "+ " + brl(e.entra) : "− " + brl(e.sai)}</span><small class="num ${e.saldo < 0 ? "neg" : "dim"}">saldo ${brl(e.saldo)}</small></span></div>`;
+    const act = e.tipo === "fatura" ? `data-act="fatopts" data-card="${e.f.c.id}" data-venc="${e.f.venc}"` : `data-act="${e.t.virtual ? "editrec" : "edittx"}" data-id="${esc(e.t.virtual ? e.t.recId : e.t.id)}"`;
+    return `<button class="row ag2" ${act}><span class="dt num">${dm(e.data)}</span><b>${esc(e.desc)}</b><span class="amt ${e.entra ? "pos" : ""}">${e.entra ? "+ " : ""}${brl(e.entra || e.sai)}</span></button>`;
   };
-  return `<section class="card wide">
-    <div class="card-h"><h2>Próximos pagamentos</h2><span class="muted">até ${dm(fimProx)}</span></div>
-    <div class="kpis"><div class="kpi"><div class="label">Nas contas hoje</div><div class="v">${brl(A.inicio)}</div></div><div class="kpi"><div class="label">A pagar</div><div class="v neg">${brl(A.ev.reduce((s, e) => s + (e.sai || 0), 0))}</div></div><div class="kpi big"><div class="label">Previsto em ${dm(fimProx)}</div><div class="v" style="${A.fim < 0 ? "color:var(--red)" : ""}">${brl(A.fim)}</div></div></div>
-    ${status}
-    ${A.ev.length ? `<div class="rows">${lista.map(linha).join("")}</div>${A.ev.length > 6 ? `<button class="btn ghost sm" data-act="agendatudo" style="align-self:flex-start">${AGENDA_TUDO ? "Mostrar menos" : "Ver todos (" + A.ev.length + ")"}</button>` : ""}` : `<div class="empty">Nada previsto até ${dm(fimProx)}.</div>`}
-    ${semCiclo.length ? `<div class="hint">Defina fechamento e vencimento de ${semCiclo.map(c => esc(c.nome)).join(", ")} em <b>Mais → Cartões</b> para a fatura entrar aqui.</div>` : ""}
+  return `<section class="card">
+    <div class="card-h"><h2>Próximos pagamentos</h2>${A.ev.length > 4 ? `<button class="btn ghost sm" data-act="agendatudo">${AGENDA_TUDO ? "Menos" : "Ver todos"}</button>` : ""}</div>
+    <div class="resumo">${resumo}</div>
+    <div class="rows">${lista.map(linha).join("")}</div>
+    ${semCiclo.length ? `<div class="hint dim">Sem fechamento/vencimento: ${semCiclo.map(c => esc(c.nome)).join(", ")}.</div>` : ""}
   </section>`;
 }
 
@@ -749,10 +771,10 @@ function vInicio() {
   let linhaHoje = "";
   if (atual) {
     const eH = soma(L.filter(t => t.data <= hj), "receita"), sH = soma(L.filter(t => t.data <= hj), "despesa");
-    const partes = [`Até hoje: entrou ${brl(eH)}, saiu ${brl(sH)}`];
+    const partes = [];
     if (sai - sH) partes.push(`ainda vence ${brl(sai - sH)}`);
     if (ent - eH) partes.push(`ainda entra ${brl(ent - eH)}`);
-    linhaHoje = partes.join(" · ");
+    linhaHoje = partes.length ? "Este mês " + partes.join(" e ") + "." : "";
   } else if (mk > mkey(new Date())) linhaHoje = "Previsão com base em fixos, parcelas e entradas recorrentes.";
 
   // categorias
@@ -794,7 +816,6 @@ function vInicio() {
 
   <section class="card">
     <div class="card-h"><h2>Onde está o dinheiro</h2>${contas.length ? `<span class="serif" style="font-size:1.3rem;color:var(--gold2)">${brl(totContas)}</span>` : ""}</div>
-    ${contas.length > 1 ? `<button class="btn sm ghost" data-act="transferir" style="align-self:flex-start">⇄ Transferir entre contas</button>` : ""}
     ${contas.length ? `<div class="rows">${contas.map(c => { const s = saldoConta(c); return `<div class="row"><span class="tag" style="background:${esc(pessoaCor(c.pessoa_id))}"></span><span><b>${esc(c.nome)}</b><small>${esc(TIPOS_CONTA[c.tipo] || c.tipo)}${c.banco ? " · " + esc(c.banco) : ""} · ${esc(pessoaNome(c.pessoa_id))}</small></span><span class="amt ${s < 0 ? "neg" : ""}">${brl(s)}</span></div>`; }).join("")}</div>`
       : `<div class="empty">Cadastre suas contas para ver quanto vocês têm de verdade.<br><br><button class="btn sm" data-act="go" data-v="mais" data-s="contas">Cadastrar contas</button></div>`}
   </section>
@@ -1063,7 +1084,7 @@ function openSheet(title, html, mount) {
   mount && mount(bg);
 }
 function closeSheet() { const s = $("#sheet"); if (s) s.remove(); document.body.style.overflow = ""; }
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); if ($("#dial") && !$("#dial").hidden) toggleDial(false); } });
 
 const pessoaOpts = sel => opt("", "Casal (juntos)", !sel) + S.perfis.map(p => opt(p.id, p.nome, sel === p.id)).join("");
 const catOpts = (tipo, sel) => S.cats.filter(c => c.tipo === tipo).map(c => opt(c.id, c.nome, sel === c.id)).join("") || opt("", "Sem categorias");
@@ -1096,7 +1117,17 @@ function bindTipo(root, pref, onChange) {
   }));
 }
 
-/* ----- escolha do tipo (ao tocar no +) ----- */
+/* ----- menu do + com ícones ----- */
+function toggleDial(force) {
+  const d = $("#dial"), bg = $("#dial-bg"), open = force ?? d.hidden;
+  d.hidden = bg.hidden = !open;
+  document.querySelectorAll(".nav .plus").forEach(b => b.classList.toggle("open", open));
+}
+async function fotoEscolhida(file) {
+  openTx(null, { tipo: "despesa" });
+  const root = $("#sheet"); if (root) lerFoto(file, root);
+}
+/* ----- escolha do tipo (antigo, não usado) ----- */
 function openEscolha() {
   const poucas = S.contas.filter(c => c.ativa).length < 2;
   const op = (tipo, cor, ico, t, d, off) => `<button class="pick" data-act="escolha" data-tipo="${tipo}" ${off ? "disabled" : ""}>
@@ -1325,8 +1356,10 @@ const ACT = {
   sair: async () => { await sb.auth.signOut(); location.reload(); },
   go: a => { S.view = a.dataset.v; S.sub = a.dataset.s || null; ARM = null; render(); window.scrollTo(0, 0); },
   mes: a => { S.mes = shiftMk(S.mes, Number(a.dataset.k)); render(); },
-  novo: () => openEscolha(),
-  escolha: a => { const t = a.dataset.tipo; closeSheet(); openTx(null, { tipo: t }); },
+  novo: () => toggleDial(),
+  escolha: a => { const t = a.dataset.tipo; toggleDial(false); closeSheet(); openTx(null, { tipo: t }); },
+  camera: () => { toggleDial(false); $("#cam-file").click(); },
+  dialbg: () => toggleDial(false),
   close: () => closeSheet(),
   edittx: a => { const t = S.tx.find(x => x.id === a.dataset.id); if (t) openTx(t); },
   editrec: a => { const r = S.rec.find(x => x.id === a.dataset.id); if (r) openRec(r); },
@@ -1336,6 +1369,13 @@ const ACT = {
   reltab: a => { S.relTab = a.dataset.k; render(); },
   print: () => window.print(),
   agendatudo: () => { AGENDA_TUDO = !AGENDA_TUDO; render(); },
+  fatopts: a => {
+    const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
+    openSheet(`Fatura ${c.nome}`, `<div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="kpi"><div class="label">Total</div><div class="v">${brl(f.total)}</div></div><div class="kpi"><div class="label">Vence</div><div class="v">${dm(f.venc)}</div></div></div>
+      <div class="hint">${f.aberta ? `Ainda aberta: fecha em ${dm(f.ate)}, pode subir.` : "Fechada."}${f.pago ? ` Já pago ${brl(f.pago)}.` : ""}</div>
+      <div class="actions" style="margin:12px 0"><button class="btn gold" data-act="pagarfat" data-card="${c.id}" data-venc="${f.venc}">Pagar fatura</button></div>
+      <div class="rows">${f.itens.sort((x, y) => x.data.localeCompare(y.data)).map(t => rowTx(t, true)).join("") || '<div class="empty">Nenhuma compra ainda.</div>'}</div>`);
+  },
   verfat: a => {
     const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
     openSheet(`Fatura ${c.nome}`, `<div class="hint">Compras de ${dm(diaSeguinte(f.de))} a ${dm(f.ate)} · vence ${dm(f.venc)}</div>
@@ -1480,6 +1520,7 @@ const fmtMoney = c => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toLocaleString("p
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("money")) { mascaraDinheiro(i); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} } });
 document.addEventListener("focusin", e => { const i = e.target; if (i.classList && i.classList.contains("money")) setTimeout(() => { try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }, 0); });
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("pin")) { const v = i.value.replace(/\D/g, "").slice(0, 6); if (v !== i.value) i.value = v; } });
+document.addEventListener("change", e => { if (e.target.id === "cam-file") { const f = e.target.files[0]; e.target.value = ""; if (f) fotoEscolhida(f); } });
 document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
   const id = a.dataset.id;
