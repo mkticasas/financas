@@ -25,8 +25,9 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
-body{min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+body{min-height:100vh;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));overflow-x:clip}
 button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{font-size:16px}   /* abaixo de 16px o iPhone dá zoom ao tocar no campo */
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 [hidden]{display:none!important}
@@ -43,11 +44,11 @@ h3{font-size:.95rem;font-weight:600}
 
 /* topo */
 .top{position:sticky;top:0;z-index:20;background:rgba(15,14,12,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
-.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
-.brand{font-family:var(--serif);font-size:1.2rem;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.month{display:flex;align-items:center;gap:4px}
-.month button{background:none;border:1px solid var(--line);border-radius:10px;width:32px;height:32px;color:var(--fg2);font-size:1.1rem;line-height:1}
-.month strong{font-weight:600;font-size:.9rem;min-width:7.5rem;text-align:center;text-transform:capitalize}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:12px}
+.brand{font-family:var(--serif);font-size:1.15rem;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+.month{display:flex;align-items:center;gap:4px;flex:none}
+.month button{background:none;border:1px solid var(--line);border-radius:10px;width:32px;height:32px;color:var(--fg2);font-size:1.1rem;line-height:1;padding:0}
+.month strong{font-weight:600;font-size:.88rem;min-width:4.8rem;text-align:center;text-transform:capitalize;white-space:nowrap}
 .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.85rem;color:var(--bg);flex:none;border:0}
 
 main{padding-block:18px 24px;display:flex;flex-direction:column;gap:14px}
