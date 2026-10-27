@@ -315,7 +315,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.26-1845";
+const APP_VERSION = "2026.10.27-1559";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -660,7 +660,9 @@ async function atualizarNotifBox() {
     "sem-suporte": `<div class="hint">Este navegador não aceita notificações. No iPhone, precisa do iOS 16.4 ou mais novo e do app instalado na tela inicial.</div>`,
     bloqueado: `<div class="hint neg">As notificações foram bloqueadas neste aparelho. No iPhone: <b>Ajustes → Notificações → Finanças</b> e permita. Depois volte aqui.</div>`,
     inativo: `<div class="hint">Receba um aviso no celular quando ${esc(outro)} lançar um gasto ou entrada.</div><button class="btn gold" data-act="notifon">Ativar notificações neste aparelho</button>`,
-    ativo: `<div class="hint pos">Ativo neste aparelho. Você recebe um aviso quando ${esc(outro)} lançar algo.</div><button class="btn ghost sm" data-act="notifoff" style="align-self:flex-start">Desativar neste aparelho</button>`,
+    ativo: `<div class="hint pos">Ativo neste aparelho.</div>
+      <div class="hint">Você recebe um aviso quando ${esc(outro)} lançar algo e lembretes das contas fora do cartão: 3 dias antes, na véspera, no dia e se atrasar.</div>
+      <div class="actions"><button class="btn sm" data-act="testelembrete">Testar lembrete</button><button class="btn ghost sm" data-act="notifoff">Desativar neste aparelho</button></div>`,
   };
   box.innerHTML = T[st];
 }
@@ -1538,6 +1540,13 @@ const ACT = {
   sinal: a => { const i = a.closest("form").querySelector(".money"); i.value = i.value.startsWith("-") ? i.value.slice(1) : "-" + i.value; },
   notifon: a => ativarNotif(a),
   notifoff: () => desativarNotif(),
+  testelembrete: async a => {
+    a.disabled = true; a.textContent = "Enviando…";
+    const { data, error } = await sb.functions.invoke("lembretes", { body: { teste: true } });
+    a.disabled = false; a.textContent = "Testar lembrete";
+    if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch (e) {} return toast(/404|Failed to send|FunctionsFetchError/i.test(m + (error.name || "")) ? "A função lembretes ainda não foi publicada no Supabase." : "Não enviou: " + m, true); }
+    toast(data?.enviados ? "Lembrete enviado. Confira o celular." : "Nenhum aparelho do casal com notificação ativa.");
+  },
   atualizar: async a => { if (a.dataset.v) return atualizarApp(a.dataset.v); a.disabled = true; a.textContent = "Verificando…"; if (!(await checarVersao(true))) { a.disabled = false; a.textContent = "Atualizar app"; toast("Você já está na versão mais nova."); } },
   letras: a => { const i = a.closest("form").querySelector(`[name="${a.dataset.name}"]`); i.setAttribute("inputmode", "text"); i.removeAttribute("pattern"); i.removeAttribute("maxlength"); i.classList.remove("pin"); a.remove(); i.focus(); },
   semsenha: async a => {
