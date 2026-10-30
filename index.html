@@ -189,6 +189,12 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 .setor{margin-top:8px}
 .setor-h{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold2);padding:10px 0 4px;border-bottom:1px solid var(--line)}
 .setor-h .dim{font-weight:500;text-transform:none;letter-spacing:0}
+.search{position:relative;display:flex;align-items:center}
+.search svg{position:absolute;left:12px;width:18px;height:18px;color:var(--fg3);pointer-events:none}
+.search input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 38px 11px 38px;-webkit-appearance:none;appearance:none}
+.search input::-webkit-search-cancel-button{display:none}
+.search input:focus{border-color:var(--gold);outline:none}
+.x-clear{position:absolute;right:6px;background:none;border:0;color:var(--fg2);font-size:1.3rem;width:30px;height:30px;padding:0}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -322,7 +328,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.30-2146";
+const APP_VERSION = "2026.10.30-2235";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -394,7 +400,7 @@ const S = {
   session: null, perfil: null, casal: null,
   perfis: [], cats: [], contas: [], cartoes: [], tx: [], rec: [], compras: [],
   mes: mkey(new Date()), view: "inicio", sub: null, relTab: "tudo",
-  filt: { tipo: "", pessoa: "", cat: "" },
+  filt: { tipo: "", pessoa: "", cat: "" }, busca: "", buscaC: "",
 };
 let ARM = null;
 let CONVITE = null; try { CONVITE = JSON.parse(localStorage.getItem("convite") || "null"); } catch (e) {}
@@ -724,7 +730,7 @@ document.addEventListener("visibilitychange", async () => {
 let dirty = false;
 function safeRender() {
   const a = document.activeElement;
-  if (a && a.closest && a.closest("#view form") && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { dirty = true; return; }
+  if (a && a.closest && (a.closest("#view form") || a.dataset?.busca) && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { dirty = true; return; }
   render();
 }
 document.addEventListener("focusout", () => setTimeout(() => { if (dirty && !(document.activeElement?.closest?.("#view form"))) { dirty = false; render(); } }, 50));
@@ -894,8 +900,17 @@ function vInicio() {
 
 /* ===================== Lançamentos ===================== */
 function vLanc() {
-  const f = S.filt;
-  let L = lanc(S.mes);
+  const f = S.filt, q = semAcento(S.busca.trim());
+  let L;
+  if (q) {
+    // busca em todos os meses: descrição, observação, categoria, conta, cartão, pessoa e valor
+    const qn = q.replace(/[^\d,.]/g, "").replace(/\./g, "").replace(",", ".");
+    const mkHoje = mkey(new Date());
+    L = S.tx.concat(recMes(S.mes), recMes(mkHoje === S.mes ? shiftMk(S.mes, 1) : mkHoje)).filter(t => {
+      const txt = semAcento([t.descricao, t.obs, cat(t.categoria_id)?.nome, S.contas.find(c => c.id === t.conta_id)?.nome, S.cartoes.find(c => c.id === t.cartao_id)?.nome, pessoaNome(t.pessoa_id), t.forma].join(" "));
+      return q.split(/\s+/).every(w => txt.includes(w)) || (qn && /\d/.test(qn) && (t._c / 100).toFixed(2).startsWith(String(parseFloat(qn))));
+    });
+  } else L = lanc(S.mes);
   if (f.tipo) L = L.filter(t => t.tipo === f.tipo);
   if (f.pessoa) L = L.filter(t => f.pessoa === "casal" ? !t.pessoa_id : t.pessoa_id === f.pessoa);
   if (f.cat) L = L.filter(t => t.categoria_id === f.cat);
@@ -904,11 +919,12 @@ function vLanc() {
   const chip = (k, v, l) => `<button class="chip" data-act="filt" data-k="${k}" data-val="${esc(v)}" aria-pressed="${f[k] === v}">${esc(l)}</button>`;
   return `<section class="card">
     <div class="card-h"><h2>Lançamentos</h2><span class="muted num">${L.length} itens · ${brl(soma(L, "receita") - soma(L, "despesa"))}</span></div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="busca" type="search" data-busca="busca" placeholder="Buscar em todos os meses: mercado, Netflix, 150…" value="${esc(S.busca)}" autocomplete="off" enterkeyhint="search">${S.busca ? `<button class="x-clear" data-act="limpabusca" data-k="busca" aria-label="Limpar busca">×</button>` : ""}</div>
     <div class="chips">${chip("tipo", "", "Tudo")}${chip("tipo", "despesa", "Saídas")}${chip("tipo", "receita", "Entradas")}${S.contas.length > 1 ? chip("tipo", "transferencia", "Transferências") : ""}</div>
     <div class="chips">${chip("pessoa", "", "Todos")}${chip("pessoa", "casal", "Casal")}${S.perfis.map(p => chip("pessoa", p.id, p.nome)).join("")}
       <select data-act="filtcat" aria-label="Filtrar por categoria"><option value="">Todas as categorias</option>${S.cats.map(c => opt(c.id, c.nome, f.cat === c.id)).join("")}</select></div>
-    ${L.length ? Object.entries(dias).map(([d, a]) => `<div class="day"><div class="day-h"><span>${esc(diaNome(d))}</span><span class="num">${brl(a.reduce((s, t) => s + sinal(t), 0))}</span></div><div class="rows">${a.map(t => rowTx(t)).join("")}</div></div>`).join("")
-      : `<div class="empty">Nenhum lançamento em ${esc(mesNome(S.mes))}${f.tipo || f.pessoa || f.cat ? " com esses filtros" : ""}.</div>`}
+    ${L.length ? Object.entries(dias).map(([d, a]) => `<div class="day"><div class="day-h"><span>${esc(diaNome(d))}${q && d.slice(0, 4) !== String(new Date().getFullYear()) ? " " + d.slice(0, 4) : ""}</span><span class="num">${brl(a.reduce((s, t) => s + sinal(t), 0))}</span></div><div class="rows">${a.map(t => rowTx(t)).join("")}</div></div>`).join("")
+      : `<div class="empty">${q ? `Nada encontrado para "${esc(S.busca)}".` : `Nenhum lançamento em ${esc(mesNome(S.mes))}${f.tipo || f.pessoa || f.cat ? " com esses filtros" : ""}.`}</div>`}
   </section>`;
 }
 
@@ -960,7 +976,9 @@ const setorEmoji = n => (SETORES.find(s => s[0] === n) || [, "🛒"])[1];
 const ORDEM_SET = [...SETORES.map(s => s[0]), "Outros"];
 
 function vCompras() {
-  const it = [...S.compras].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const qc = semAcento(S.buscaC.trim());
+  const todos = [...S.compras].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const it = qc ? todos.filter(i => semAcento(i.nome + " " + setorDe(i)).includes(qc)) : todos;
   const got = it.filter(i => i.pego), tot = got.reduce((s, i) => s + Math.round(i._p * i.qtd), 0);
   const grupos = {}; it.forEach(i => (grupos[setorDe(i)] = grupos[setorDe(i)] || []).push(i));
   const linha = i => `
@@ -977,9 +995,10 @@ function vCompras() {
   }).join("");
   return `<section class="card">
     <div class="card-h"><h2>Lista de compras</h2><span class="muted">${it.length - got.length} faltando</span></div>
+    ${todos.length > 5 ? `<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaC" type="search" data-busca="buscaC" placeholder="Buscar na lista" value="${esc(S.buscaC)}" autocomplete="off">${S.buscaC ? `<button class="x-clear" data-act="limpabusca" data-k="buscaC" aria-label="Limpar busca">×</button>` : ""}</div>` : ""}
     <form class="actions" data-form="additem" novalidate><input name="nome" placeholder="Ex.: Arroz 5kg" aria-label="Item" style="flex:1;min-width:10rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px"><button class="btn gold" type="submit" style="flex:none">Adicionar</button></form>
     <div class="hint">Cada item vai sozinho para o setor do mercado. Se errar, toque em ⇄ setor.</div>
-    ${it.length ? blocos : `<div class="empty">Lista vazia. Adicione o que falta em casa.</div>`}
+    ${it.length ? blocos : `<div class="empty">${qc ? `Nada na lista com "${esc(S.buscaC)}".` : "Lista vazia. Adicione o que falta em casa."}</div>`}
   </section>
   ${got.length ? `<section class="card" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
 }
@@ -1689,6 +1708,7 @@ const ACT = {
   fatura: a => { toggleDial(false); openFatura(a.dataset.card); },
   ifescolher: () => $("#if-file").click(),
   ifsalvar: () => salvarFatura(),
+  limpabusca: a => { S[a.dataset.k] = ""; render(); },
   agendatudo: () => { AGENDA_TUDO = !AGENDA_TUDO; render(); },
   fatopts: a => {
     const c = S.cartoes.find(x => x.id === a.dataset.card); if (!c) return; const f = fatura(c, a.dataset.venc);
@@ -1858,6 +1878,12 @@ const fmtMoney = c => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toLocaleString("p
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("money")) { mascaraDinheiro(i); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} } });
 document.addEventListener("focusin", e => { const i = e.target; if (i.classList && i.classList.contains("money")) setTimeout(() => { try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }, 0); });
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("pin")) { const v = i.value.replace(/\D/g, "").slice(0, 6); if (v !== i.value) i.value = v; } });
+let buscaT;
+document.addEventListener("input", e => {
+  const k = e.target.dataset && e.target.dataset.busca; if (!k) return;
+  S[k] = e.target.value; clearTimeout(buscaT);
+  buscaT = setTimeout(() => { const pos = e.target.selectionStart; render(); const el = $("#" + k); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (_) {} } }, 180);
+});
 document.addEventListener("change", e => { if (e.target.id === "cam-file") { const f = e.target.files[0]; e.target.value = ""; if (f) fotoEscolhida(f); } });
 document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
