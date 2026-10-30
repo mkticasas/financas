@@ -16,6 +16,7 @@ Controle financeiro do casal: lançamentos, parcelas, fixos, entradas, contas, c
 6. Notificações: rodar `supabase/atualizacao-notificacoes.sql`, publicar a função `notificar` e criar as secrets `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY`.
 7. Lembretes de vencimento: publicar a função `lembretes` e rodar `supabase/atualizacao-lembretes.sql` (agenda diária às 8h).
 8. Importar fatura: publicar a função `ler-fatura` (usa a mesma `ANTHROPIC_API_KEY`).
+9. Lista de compras: rodar `supabase/atualizacao-precos.sql` e publicar `classificar-compras` e `ler-produto`.
 
 ## Publicar uma mudança
 Rode `./tools/versao.sh` antes do commit. Ele troca o número da versão no `index.html` e no `version.json`, e é isso que faz o app instalado na tela inicial se atualizar sozinho.

@@ -195,6 +195,8 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 .search input::-webkit-search-cancel-button{display:none}
 .search input:focus{border-color:var(--gold);outline:none}
 .x-clear{position:absolute;right:6px;background:none;border:0;color:var(--fg2);font-size:1.3rem;width:30px;height:30px;padding:0}
+.cmp{display:block;margin-top:4px;font-size:.78rem;color:var(--fg2)}
+.linkbtn{background:none;border:0;padding:0;color:var(--gold2);font-size:inherit;text-decoration:underline}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -328,7 +330,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.30-2236";
+const APP_VERSION = "2026.10.30-2312";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -416,6 +418,7 @@ const LOAD = {
   cartoes: async () => { const { data } = await sb.from("cartoes").select("*").order("created_at"); S.cartoes = data || []; },
   transacoes: async () => { const { data, error } = await sb.from("transacoes").select("*").order("data", { ascending: false }).order("created_at", { ascending: false }).limit(10000); if (error) throw error; S.tx = (data || []).map(t => ({ ...t, _c: C(t.valor) })); },
   recorrentes: async () => { const { data } = await sb.from("recorrentes").select("*").order("dia"); S.rec = (data || []).map(r => ({ ...r, _c: C(r.valor) })); },
+  precos: async () => { const { data, error } = await sb.from("precos").select("produto,nome,preco,qtd,data,created_at").order("data", { ascending: false }).limit(3000); S.precos = error ? [] : (data || []).map(p => ({ ...p, _c: C(p.preco) })); },
   compras: async () => { const { data } = await sb.from("compras").select("*").order("created_at"); S.compras = (data || []).map(i => ({ ...i, _p: C(i.preco), qtd: Number(i.qtd) || 1 })); },
 };
 async function loadAll() {
@@ -709,7 +712,7 @@ let channel, pend = {}, pendT;
 function subscribe() {
   if (channel) sb.removeChannel(channel);
   channel = sb.channel("casal-" + S.perfil.casal_id);
-  Object.keys(LOAD).forEach(t => channel.on("postgres_changes", { event: "*", schema: "public", table: t, filter: "casal_id=eq." + S.perfil.casal_id }, pl => {
+  Object.keys(LOAD).filter(t => t !== "precos").forEach(t => channel.on("postgres_changes", { event: "*", schema: "public", table: t, filter: "casal_id=eq." + S.perfil.casal_id }, pl => {
     queue(t);
     const n = pl?.new;
     if (t === "transacoes" && pl.eventType === "INSERT" && n && n.tipo !== "transferencia" && n.criado_por && n.criado_por !== S.perfil.id && (!n.parcela || n.parcela === 1)) {
@@ -929,6 +932,69 @@ function vLanc() {
 }
 
 /* ===================== Compras ===================== */
+/* ----- foto do produto / etiqueta na lista de compras ----- */
+let FOTO_ITENS = [];
+async function lerProduto(file) {
+  openSheet("Foto do produto", `<div class="ai"><div class="ai-step busy" id="fp-step">Preparando a foto…</div></div><div id="fp-rev"></div>`);
+  const step = (m, c = "busy") => { const el = $("#fp-step"); if (el) { el.className = "ai-step " + c; el.textContent = m; } };
+  let img; try { img = await encolher(file, 1600); } catch (e) { return step("Não consegui abrir essa imagem. Tente outra foto.", "bad"); }
+  step("Lendo nome e preço…");
+  const naoPegos = S.compras.filter(i => !i.pego);
+  const { data, error } = await sb.functions.invoke("ler-produto", { body: { image: img.b64, mediaType: "image/jpeg", setores: ORDEM_SET, lista: naoPegos.map(i => i.nome) } });
+  if (error || data?.error) {
+    let m = data?.error || error.message; try { m = (await error.context.json()).error || m; } catch (e) {}
+    if (/Failed to send|FunctionsFetchError|404/i.test(m + (error?.name || ""))) m = "a função ler-produto ainda não foi publicada no Supabase.";
+    return step("Não consegui ler: " + m, "bad");
+  }
+  const d = data.dados || {};
+  if (d.legivel === false || !(d.itens || []).length) return step("Não encontrei produto ou preço. Tente chegar mais perto da etiqueta, com boa luz.", "bad");
+  FOTO_ITENS = d.itens.filter(x => x && x.nome).map((x, k) => {
+    const m = x.corresponde && naoPegos.find(i => chaveProd(i.nome) === chaveProd(x.corresponde));
+    return { k, nome: m ? m.nome : String(x.nome).slice(0, 80), _p: Math.round((Number(x.preco) || 0) * 100), qtd: Number(x.qtd) > 0 ? Number(x.qtd) : 1, setor: x.setor, match: m ? m.id : null, sel: true };
+  });
+  step(FOTO_ITENS.length === 1 ? "Confira o preço e toque em Colocar no carrinho." : `Encontrei ${FOTO_ITENS.length} itens. Confira e coloque no carrinho.`, "ok");
+  $("#fp-rev").innerHTML = `<div class="rows" style="margin-top:10px">${FOTO_ITENS.map(x => {
+    const h = historico(x.nome)[0];
+    return `<div class="row imp" style="grid-template-columns:auto minmax(0,1fr)">
+      <input type="checkbox" data-fp="${x.k}" data-c="sel" checked style="width:22px;height:22px;accent-color:var(--gold)" aria-label="Incluir">
+      <span style="min-width:0;display:flex;flex-direction:column;gap:6px">
+        <input data-fp="${x.k}" data-c="nome" value="${esc(x.nome)}" aria-label="Nome" style="background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-weight:600">
+        <span class="actions" style="align-items:center"><input data-fp="${x.k}" data-c="qtd" inputmode="decimal" value="${String(x.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-fp="${x.k}" data-c="preco" class="money" inputmode="numeric" value="${fmtMoney(x._p)}" aria-label="Preço" style="width:6.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"></span>
+        <small class="muted">${x.match ? "✓ marca o item que já está na lista" : "novo item · " + esc(x.setor || "Outros")}${h ? ` · última vez ${brl(h._c)} em ${dm(h.data)}` : ""}</small>
+      </span></div>`; }).join("")}</div>
+    <button class="btn gold" id="fp-btn" data-act="fpok" style="width:100%;margin-top:12px">Colocar no carrinho</button>`;
+  $("#fp-rev").addEventListener("input", e => {
+    const t = e.target, x = FOTO_ITENS[+t.dataset.fp]; if (!x) return;
+    if (t.dataset.c === "nome") x.nome = t.value.trim() || x.nome;
+    if (t.dataset.c === "qtd") { const q = parseFloat(t.value.replace(",", ".")); x.qtd = q > 0 ? q : 1; }
+    if (t.dataset.c === "preco") { const p = parseMoney(t.value); x._p = p > 0 ? p : 0; }
+  });
+  $("#fp-rev").addEventListener("change", e => { const t = e.target; if (t.dataset.c === "sel") FOTO_ITENS[+t.dataset.fp].sel = t.checked; });
+}
+
+/* ----- histórico de preços ----- */
+const chaveProd = n => semAcento(n).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+function historico(nome) {
+  const k = chaveProd(nome), ps = S.precos || [];
+  let h = ps.filter(p => p.produto === k);
+  if (!h.length) {
+    const tk = k.split(" ").filter(w => w.length > 2);
+    if (tk.length) {
+      const sc = p => { const pt = p.produto.split(" "); const inter = tk.filter(w => pt.includes(w)).length; return inter / Math.max(tk.length, pt.filter(w => w.length > 2).length); };
+      const best = ps.map(p => [p, sc(p)]).filter(x => x[1] >= 0.6).sort((a, b) => b[1] - a[1]);
+      if (best.length) { const kk = best[0][0].produto; h = ps.filter(p => p.produto === kk); }
+    }
+  }
+  return h; // mais recente primeiro
+}
+function compHTML(i) {
+  const h = historico(i.nome); if (!h.length) return "";
+  const u = h[0], dif = i._p ? i._p - u._c : 0;
+  const tag = !i._p || !dif ? "" : dif > 0 ? ` <span class="neg">▲ ${brl(dif)}</span>` : ` <span class="pos">▼ ${brl(-dif)}</span>`;
+  const menor = Math.min(...h.map(x => x._c));
+  return `Última vez ${brl(u._c)} em ${dm(u.data)}${tag}${h.length > 1 ? ` · menor ${brl(menor)}` : ""} · <button class="linkbtn" data-act="histprod" data-nome="${esc(i.nome)}">histórico</button>`;
+}
+
 /* ----- setores da lista de compras ----- */
 const SETORES = [
   ["Hortifrúti", "🥬", "banana,maca,laranja,limao,alface,tomate,cebola,alho,batata,cenoura,abobrinha,pepino,fruta,verdura,legume,mamao,uva,morango,abacaxi,melancia,melao,pera,manga,brocolis,couve,repolho,pimentao,cheiro verde,salsinha,coentro,mandioca,beterraba,chuchu,abacate,kiwi,gengibre,rucula,espinafre"],
@@ -986,6 +1052,7 @@ function vCompras() {
         <input type="checkbox" data-act="pego" data-id="${i.id}" ${i.pego ? "checked" : ""} aria-label="No carrinho: ${esc(i.nome)}" style="width:22px;height:22px;accent-color:var(--gold)">
         <span style="min-width:0"><b style="${i.pego ? "text-decoration:line-through;color:var(--fg3)" : ""}">${esc(i.nome)}</b><small>${esc(pessoaNome(i.criado_por))}</small>
           ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="numeric" class="money" placeholder="Preço" value="${i._p ? fmtMoney(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted" id="ct-${i.id}">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
+          ${(S.precos || []).length && historico(i.nome).length ? `<small class="cmp" id="cmp-${i.id}">${compHTML(i)}</small>` : ""}
         </span>
         <span class="actions" style="flex-direction:column;align-items:flex-end;gap:4px"><button class="btn ghost sm" data-act="setoritem" data-id="${i.id}" aria-label="Mudar setor">⇄ setor</button><button class="btn ghost sm" data-act="rmitem" data-id="${i.id}">Remover</button></span>
       </div>`;
@@ -996,7 +1063,8 @@ function vCompras() {
   return `<section class="card">
     <div class="card-h"><h2>Lista de compras</h2><span class="muted">${it.length - got.length} faltando</span></div>
     ${todos.length > 5 ? `<div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaC" type="search" data-busca="buscaC" placeholder="Buscar na lista" value="${esc(S.buscaC)}" autocomplete="off">${S.buscaC ? `<button class="x-clear" data-act="limpabusca" data-k="buscaC" aria-label="Limpar busca">×</button>` : ""}</div>` : ""}
-    <form class="actions" data-form="additem" novalidate><input name="nome" placeholder="Ex.: Arroz 5kg" aria-label="Item" style="flex:1;min-width:10rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px"><button class="btn gold" type="submit" style="flex:none">Adicionar</button></form>
+    <form class="actions" data-form="additem" novalidate style="flex-wrap:nowrap"><input name="nome" placeholder="Ex.: Arroz 5kg" aria-label="Item" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px"><button class="btn gold" type="submit" style="flex:none">Adicionar</button><button type="button" class="btn" data-act="fotoprod" style="flex:none" aria-label="Foto do produto ou etiqueta">📷</button></form>
+    <input type="file" id="fp-file" accept="image/*" hidden>
     <div class="hint">Cada item vai sozinho para o setor do mercado. Se errar, toque em ⇄ setor.</div>
     ${it.length ? blocos : `<div class="empty">${qc ? `Nada na lista com "${esc(S.buscaC)}".` : "Lista vazia. Adicione o que falta em casa."}</div>`}
   </section>
@@ -1813,6 +1881,26 @@ const ACT = {
       });
     });
   },
+  fotoprod: () => $("#fp-file").click(),
+  histprod: a => {
+    const h = historico(a.dataset.nome); if (!h.length) return;
+    const menor = Math.min(...h.map(x => x._c)), maior = Math.max(...h.map(x => x._c));
+    openSheet("Histórico · " + h[0].nome, `<div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="kpi"><div class="label">Menor</div><div class="v pos">${brl(menor)}</div></div><div class="kpi"><div class="label">Maior</div><div class="v neg">${brl(maior)}</div></div></div>
+      <div class="rows" style="margin-top:10px">${h.slice(0, 30).map(p => `<div class="row" style="grid-template-columns:minmax(0,1fr) auto"><span><b>${esc(p.nome)}</b><small>${esc(diaNome(p.data))}${Number(p.qtd) !== 1 ? " · " + String(p.qtd).replace(".", ",") + " un." : ""}</small></span><span class="amt">${brl(p._c)}</span></div>`).join("")}</div>`);
+  },
+  fpok: async () => {
+    const sel = FOTO_ITENS.filter(x => x.sel); if (!sel.length) return closeSheet();
+    const btn = $("#fp-btn"); btn.disabled = true; btn.textContent = "Salvando…";
+    for (const x of sel) {
+      const preco = R(x._p), qtd = x.qtd > 0 ? x.qtd : 1;
+      if (x.match) await sb.from("compras").update({ pego: true, preco, qtd }).eq("id", x.match);
+      else {
+        let r = await sb.from("compras").insert({ nome: x.nome, pego: true, preco, qtd, setor: x.setor || null });
+        if (r.error && /setor|schema cache/i.test(r.error.message)) await sb.from("compras").insert({ nome: x.nome, pego: true, preco, qtd });
+      }
+    }
+    closeSheet(); await LOAD.compras(); render(); toast(sel.length === 1 ? "Item no carrinho." : `${sel.length} itens no carrinho.`);
+  },
   setoritem: a => {
     const i = S.compras.find(x => x.id === a.dataset.id); if (!i) return; const atual = setorDe(i);
     openSheet("Setor de " + i.nome, `<div class="picks">${ORDEM_SET.map(n => `<button class="pick" data-act="setsetor" data-id="${i.id}" data-s="${esc(n)}" style="padding:12px 14px${n === atual ? ";border-color:var(--gold)" : ""}"><span style="font-size:1.4rem">${setorEmoji(n)}</span><span><b>${esc(n)}</b></span></button>`).join("")}</div>`);
@@ -1829,7 +1917,9 @@ const ACT = {
     if (!tot) { toast("Coloque os preços dos itens marcados antes de finalizar.", true); return; }
     const merc = S.cats.find(c => c.tipo === "despesa" && c.nome === "Mercado");
     openTx(null, { descricao: "Compra do mercado", _c: tot, categoria_id: merc?.id || "", obs: got.map(i => i.nome).join(", ").slice(0, 300), origem: "lista" }, async () => {
-      await sb.from("compras").delete().in("id", got.map(i => i.id)); await LOAD.compras(); render();
+      const hist = got.filter(i => i._p > 0).map(i => ({ produto: chaveProd(i.nome), nome: i.nome, preco: R(i._p), qtd: i.qtd, data: today() }));
+      if (hist.length) { const { error } = await sb.from("precos").insert(hist); if (error && /precos|schema cache|relation/i.test(error.message)) toast("Compra lançada. Para guardar os preços, rode o atualizacao-precos.sql.", true); }
+      await sb.from("compras").delete().in("id", got.map(i => i.id)); await Promise.all([LOAD.compras(), LOAD.precos()]); render();
     });
   },
 };
@@ -1886,6 +1976,7 @@ function lerItem(id) {
   if (qi) { const q = parseFloat(String(qi.value).replace(",", ".")); i.qtd = isFinite(q) && q > 0 ? q : 1; }
   if (pi) { const p = parseMoney(pi.value); i._p = p > 0 ? p : 0; }
   const ct = $("#ct-" + id); if (ct) ct.textContent = brl(Math.round(i._p * i.qtd));
+  const cm = $("#cmp-" + id); if (cm) cm.innerHTML = compHTML(i);
   const tt = $("#cart-tot"); if (tt) tt.textContent = brl(S.compras.filter(x => x.pego).reduce((s, x) => s + Math.round(x._p * x.qtd), 0));
   return i;
 }
@@ -1905,6 +1996,7 @@ document.addEventListener("input", e => {
   S[k] = e.target.value; clearTimeout(buscaT);
   buscaT = setTimeout(() => { const pos = e.target.selectionStart; render(); const el = $("#" + k); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (_) {} } }, 180);
 });
+document.addEventListener("change", e => { if (e.target.id === "fp-file") { const f = e.target.files[0]; e.target.value = ""; if (f) lerProduto(f); } });
 document.addEventListener("change", e => { if (e.target.id === "cam-file") { const f = e.target.files[0]; e.target.value = ""; if (f) fotoEscolhida(f); } });
 document.addEventListener("change", async e => {
   const a = e.target; if (!a.dataset || !a.dataset.act) return;
