@@ -328,7 +328,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.30-2235";
+const APP_VERSION = "2026.10.30-2236";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -730,7 +730,7 @@ document.addEventListener("visibilitychange", async () => {
 let dirty = false;
 function safeRender() {
   const a = document.activeElement;
-  if (a && a.closest && (a.closest("#view form") || a.dataset?.busca) && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { dirty = true; return; }
+  if (a && a.closest && (a.closest("#view form") || a.dataset?.busca || a.dataset?.act === "qtd" || a.dataset?.act === "preco") && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) { dirty = true; return; }
   render();
 }
 document.addEventListener("focusout", () => setTimeout(() => { if (dirty && !(document.activeElement?.closest?.("#view form"))) { dirty = false; render(); } }, 50));
@@ -985,7 +985,7 @@ function vCompras() {
       <div class="row" style="grid-template-columns:auto minmax(0,1fr) auto">
         <input type="checkbox" data-act="pego" data-id="${i.id}" ${i.pego ? "checked" : ""} aria-label="No carrinho: ${esc(i.nome)}" style="width:22px;height:22px;accent-color:var(--gold)">
         <span style="min-width:0"><b style="${i.pego ? "text-decoration:line-through;color:var(--fg3)" : ""}">${esc(i.nome)}</b><small>${esc(pessoaNome(i.criado_por))}</small>
-          ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="numeric" class="money" placeholder="Preço" value="${i._p ? fmtMoney(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
+          ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="numeric" class="money" placeholder="Preço" value="${i._p ? fmtMoney(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted" id="ct-${i.id}">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
         </span>
         <span class="actions" style="flex-direction:column;align-items:flex-end;gap:4px"><button class="btn ghost sm" data-act="setoritem" data-id="${i.id}" aria-label="Mudar setor">⇄ setor</button><button class="btn ghost sm" data-act="rmitem" data-id="${i.id}">Remover</button></span>
       </div>`;
@@ -1000,7 +1000,7 @@ function vCompras() {
     <div class="hint">Cada item vai sozinho para o setor do mercado. Se errar, toque em ⇄ setor.</div>
     ${it.length ? blocos : `<div class="empty">${qc ? `Nada na lista com "${esc(S.buscaC)}".` : "Lista vazia. Adicione o que falta em casa."}</div>`}
   </section>
-  ${got.length ? `<section class="card" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
+  ${got.length ? `<section class="card" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" id="cart-tot" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
 }
 
 /* ===================== Mais ===================== */
@@ -1878,6 +1878,27 @@ const fmtMoney = c => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toLocaleString("p
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("money")) { mascaraDinheiro(i); try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} } });
 document.addEventListener("focusin", e => { const i = e.target; if (i.classList && i.classList.contains("money")) setTimeout(() => { try { i.setSelectionRange(i.value.length, i.value.length); } catch (_) {} }, 0); });
 document.addEventListener("input", e => { const i = e.target; if (i.classList && i.classList.contains("pin")) { const v = i.value.replace(/\D/g, "").slice(0, 6); if (v !== i.value) i.value = v; } });
+/* ----- preço e quantidade na lista: total ao vivo, salva sozinho ----- */
+const salvarT = {};
+function lerItem(id) {
+  const i = S.compras.find(x => x.id === id); if (!i) return null;
+  const qi = document.querySelector(`[data-act=qtd][data-id="${id}"]`), pi = document.querySelector(`[data-act=preco][data-id="${id}"]`);
+  if (qi) { const q = parseFloat(String(qi.value).replace(",", ".")); i.qtd = isFinite(q) && q > 0 ? q : 1; }
+  if (pi) { const p = parseMoney(pi.value); i._p = p > 0 ? p : 0; }
+  const ct = $("#ct-" + id); if (ct) ct.textContent = brl(Math.round(i._p * i.qtd));
+  const tt = $("#cart-tot"); if (tt) tt.textContent = brl(S.compras.filter(x => x.pego).reduce((s, x) => s + Math.round(x._p * x.qtd), 0));
+  return i;
+}
+async function salvarItem(id) {
+  clearTimeout(salvarT[id]); const i = lerItem(id); if (!i) return;
+  const { error } = await sb.from("compras").update({ qtd: i.qtd, preco: R(i._p) }).eq("id", id);
+  if (error) toast("Não salvou o preço: " + error.message, true);
+}
+document.addEventListener("input", e => {
+  const a = e.target, act = a.dataset && a.dataset.act; if (act !== "qtd" && act !== "preco") return;
+  lerItem(a.dataset.id); clearTimeout(salvarT[a.dataset.id]);
+  salvarT[a.dataset.id] = setTimeout(() => salvarItem(a.dataset.id), 700);
+});
 let buscaT;
 document.addEventListener("input", e => {
   const k = e.target.dataset && e.target.dataset.busca; if (!k) return;
@@ -1892,9 +1913,8 @@ document.addEventListener("change", async e => {
   if (a.dataset.act === "ocultarpadrao") { OCULTO = a.checked; try { localStorage.setItem("ocultar", OCULTO ? "1" : "0"); } catch (e) {} shell(); render(); return; }
   if (a.dataset.act === "avatarfile") { const f = a.files[0]; a.value = ""; if (f) salvarFoto(f); return; }
   if (a.dataset.act === "pego") await sb.from("compras").update({ pego: a.checked }).eq("id", id);
-  if (a.dataset.act === "qtd") { const q = parseFloat(String(a.value).replace(",", ".")); await sb.from("compras").update({ qtd: isFinite(q) && q > 0 ? q : 1 }).eq("id", id); }
-  if (a.dataset.act === "preco") { const p = parseMoney(a.value); await sb.from("compras").update({ preco: R(p > 0 ? p : 0) }).eq("id", id); }
-  if (["pego", "qtd", "preco"].includes(a.dataset.act)) { await LOAD.compras(); render(); }
+  if (a.dataset.act === "qtd" || a.dataset.act === "preco") { await salvarItem(id); return; }
+  if (a.dataset.act === "pego") { await LOAD.compras(); render(); }
 });
 
 /* ===================== Formulários das telas ===================== */
