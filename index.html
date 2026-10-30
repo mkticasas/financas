@@ -186,6 +186,9 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 .imp-cat{margin-top:6px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:5px 28px 5px 8px;font-size:.84rem;color:var(--fg2);max-width:100%;-webkit-appearance:none;appearance:none}
 .row.imp{align-items:start}
 .row.imp input[type=checkbox]{margin-top:2px}
+.setor{margin-top:8px}
+.setor-h{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold2);padding:10px 0 4px;border-bottom:1px solid var(--line)}
+.setor-h .dim{font-weight:500;text-transform:none;letter-spacing:0}
 .resumo{display:flex;gap:8px;align-items:center;font-size:.92rem;color:var(--fg2)}
 .resumo b{color:var(--fg);font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -319,7 +322,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.29-1217";
+const APP_VERSION = "2026.10.30-2143";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -766,6 +769,7 @@ function render() {
   const V = { inicio: vInicio, lanc: vLanc, compras: vCompras, mais: vMais }[S.view] || vInicio;
   $("#view").className = "wrap view-" + S.view + (S.view === "mais" && S.sub ? " sub-" + S.sub : "");
   $("#view").innerHTML = V();
+  if (S.view === "compras") classificarComIA();
   if (S.view === "mais" && S.sub === "perfil") atualizarNotifBox();
 }
 
@@ -909,21 +913,73 @@ function vLanc() {
 }
 
 /* ===================== Compras ===================== */
+/* ----- setores da lista de compras ----- */
+const SETORES = [
+  ["Hortifrúti", "🥬", "banana,maca,laranja,limao,alface,tomate,cebola,alho,batata,cenoura,abobrinha,pepino,fruta,verdura,legume,mamao,uva,morango,abacaxi,melancia,melao,pera,manga,brocolis,couve,repolho,pimentao,cheiro verde,salsinha,coentro,mandioca,beterraba,chuchu,abacate,kiwi,gengibre,rucula,espinafre"],
+  ["Carnes e frios", "🥩", "carne,frango,peixe,file,linguica,salsicha,bacon,presunto,mortadela,salame,peito,coxa,sobrecoxa,costela,picanha,alcatra,patinho,acem,carne moida,hamburguer,tilapia,salmao,camarao,bife,peru,calabresa"],
+  ["Laticínios e ovos", "🧀", "leite,queijo,iogurte,manteiga,margarina,requeijao,creme de leite,nata,ovo,mussarela,parmesao,cream cheese,ricota,leite condensado"],
+  ["Padaria", "🥖", "pao,bisnaguinha,torrada,bolo,rosca,croissant,pao de forma,baguete"],
+  ["Mercearia", "🥫", "arroz,feijao,macarrao,massa,farinha,acucar,sal,oleo,azeite,cafe,cha,achocolatado,aveia,granola,cereal,biscoito,bolacha,molho,extrato de tomate,catchup,ketchup,maionese,mostarda,tempero,fermento,milho,ervilha,lentilha,grao de bico,pipoca,gelatina,chocolate,amendoim,castanha,mel,geleia,vinagre,caldo,atum,sardinha,farofa,polvilho,tapioca,leite em po,nescau,kinder,bombom,bala,chiclete"],
+  ["Bebidas", "🥤", "agua,refrigerante,coca,suco,cerveja,vinho,energetico,isotonico,cha gelado,whisky,vodka,gin,guarana"],
+  ["Limpeza", "🧽", "detergente,sabao,amaciante,agua sanitaria,desinfetante,multiuso,esponja,alvejante,limpa vidro,pano de chao,pano,saco de lixo,vassoura,rodo,cloro,lustra moveis,lava loucas,tira manchas,bom ar,inseticida,papel toalha,luva,veja,ajax,pinho sol,qboa"],
+  ["Higiene e banheiro", "🧴", "papel higienico,shampoo,xampu,condicionador,sabonete,pasta de dente,creme dental,escova de dente,fio dental,desodorante,absorvente,cotonete,algodao,barbeador,gilete,enxaguante,protetor solar,hidratante,lamina,fralda,lenco umedecido"],
+  ["Pet", "🐾", "racao,areia,petisco,sache,pet,coleira"],
+  ["Casa e utilidades", "💡", "lampada,pilha,vela,fosforo,isqueiro,filtro de cafe,papel aluminio,filme pvc,guardanapo,copo descartavel,prato descartavel,saco zip"],
+];
+const semAcento = t => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const SET_IDX = SETORES.map(([n, e, ps]) => ({ n, ps: ps.split(",").map(x => semAcento(x.trim())).filter(Boolean) }));
+function setorDic(nome) {
+  const n = " " + semAcento(nome).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
+  let best = null, bestLen = 0;
+  for (const s of SET_IDX) for (const p of s.ps) {
+    if (new RegExp(" " + p + "(s|es)? ").test(n) && p.length > bestLen) { best = s.n; bestLen = p.length; }
+  }
+  return best;
+}
+const setorDe = item => item.setor || setorDic(item.nome) || "Outros";
+// IA: classifica de uma vez os itens que o dicionário não reconheceu e salva o setor
+let IA_SET_ON = false; const IA_SET_TENTADO = new Set();
+async function classificarComIA() {
+  if (IA_SET_ON) return;
+  const pend = S.compras.filter(i => !i.setor && !setorDic(i.nome) && !IA_SET_TENTADO.has(i.id));
+  if (!pend.length) return;
+  IA_SET_ON = true; pend.forEach(i => IA_SET_TENTADO.add(i.id));
+  try {
+    const { data, error } = await sb.functions.invoke("classificar-compras", { body: { itens: pend.map(i => ({ id: i.id, nome: i.nome })), setores: ORDEM_SET } });
+    if (error || !data?.setores) return;
+    let mudou = false;
+    for (const [id, setor] of Object.entries(data.setores)) {
+      if (!ORDEM_SET.includes(setor)) continue;
+      const { error: e } = await sb.from("compras").update({ setor }).eq("id", id);
+      if (!e) mudou = true;
+    }
+    if (mudou) { await LOAD.compras(); if (S.view === "compras") render(); }
+  } finally { IA_SET_ON = false; }
+}
+const setorEmoji = n => (SETORES.find(s => s[0] === n) || [, "🛒"])[1];
+const ORDEM_SET = [...SETORES.map(s => s[0]), "Outros"];
+
 function vCompras() {
-  const it = [...S.compras].sort((a, b) => (a.pego - b.pego) || String(a.created_at).localeCompare(String(b.created_at)));
+  const it = [...S.compras].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const got = it.filter(i => i.pego), tot = got.reduce((s, i) => s + Math.round(i._p * i.qtd), 0);
-  return `<section class="card">
-    <div class="card-h"><h2>Lista de compras</h2><span class="muted">${it.length - got.length} faltando</span></div>
-    <form class="actions" data-form="additem" novalidate><input name="nome" placeholder="Ex.: Arroz 5kg" aria-label="Item" style="flex:1;min-width:10rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px"><button class="btn gold" type="submit" style="flex:none">Adicionar</button></form>
-    <div class="hint">No mercado: marque o item, coloque quantidade e preço. O total soma sozinho.</div>
-    ${it.length ? `<div class="rows">${it.map(i => `
+  const grupos = {}; it.forEach(i => (grupos[setorDe(i)] = grupos[setorDe(i)] || []).push(i));
+  const linha = i => `
       <div class="row" style="grid-template-columns:auto minmax(0,1fr) auto">
         <input type="checkbox" data-act="pego" data-id="${i.id}" ${i.pego ? "checked" : ""} aria-label="No carrinho: ${esc(i.nome)}" style="width:22px;height:22px;accent-color:var(--gold)">
         <span style="min-width:0"><b style="${i.pego ? "text-decoration:line-through;color:var(--fg3)" : ""}">${esc(i.nome)}</b><small>${esc(pessoaNome(i.criado_por))}</small>
           ${i.pego ? `<span class="actions" style="margin-top:6px;align-items:center"><input data-act="qtd" data-id="${i.id}" inputmode="decimal" value="${String(i.qtd).replace(".", ",")}" aria-label="Quantidade" style="width:4.5rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="dim">×</span><input data-act="preco" data-id="${i.id}" inputmode="numeric" class="money" placeholder="Preço" value="${i._p ? fmtMoney(i._p) : ""}" aria-label="Preço unitário" style="width:6rem;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:6px 8px"><span class="num muted">${brl(Math.round(i._p * i.qtd))}</span></span>` : ""}
         </span>
-        <button class="btn ghost sm" data-act="rmitem" data-id="${i.id}">Remover</button>
-      </div>`).join("")}</div>` : `<div class="empty">Lista vazia. Adicione o que falta em casa.</div>`}
+        <span class="actions" style="flex-direction:column;align-items:flex-end;gap:4px"><button class="btn ghost sm" data-act="setoritem" data-id="${i.id}" aria-label="Mudar setor">⇄ setor</button><button class="btn ghost sm" data-act="rmitem" data-id="${i.id}">Remover</button></span>
+      </div>`;
+  const blocos = ORDEM_SET.filter(n => grupos[n]).map(n => {
+    const g = grupos[n].sort((a, b) => (a.pego - b.pego)), falta = g.filter(i => !i.pego).length;
+    return `<div class="setor"><div class="setor-h"><span>${setorEmoji(n)} ${esc(n)}</span><span class="dim">${falta ? falta + " faltando" : "✓ tudo pego"}</span></div><div class="rows">${g.map(linha).join("")}</div></div>`;
+  }).join("");
+  return `<section class="card">
+    <div class="card-h"><h2>Lista de compras</h2><span class="muted">${it.length - got.length} faltando</span></div>
+    <form class="actions" data-form="additem" novalidate><input name="nome" placeholder="Ex.: Arroz 5kg" aria-label="Item" style="flex:1;min-width:10rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 12px"><button class="btn gold" type="submit" style="flex:none">Adicionar</button></form>
+    <div class="hint">Cada item vai sozinho para o setor do mercado. Se errar, toque em ⇄ setor.</div>
+    ${it.length ? blocos : `<div class="empty">Lista vazia. Adicione o que falta em casa.</div>`}
   </section>
   ${got.length ? `<section class="card" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
 }
@@ -1736,6 +1792,16 @@ const ACT = {
         closeSheet(); await LOAD.contas(); render(); toast("Saldo ajustado.");
       });
     });
+  },
+  setoritem: a => {
+    const i = S.compras.find(x => x.id === a.dataset.id); if (!i) return; const atual = setorDe(i);
+    openSheet("Setor de " + i.nome, `<div class="picks">${ORDEM_SET.map(n => `<button class="pick" data-act="setsetor" data-id="${i.id}" data-s="${esc(n)}" style="padding:12px 14px${n === atual ? ";border-color:var(--gold)" : ""}"><span style="font-size:1.4rem">${setorEmoji(n)}</span><span><b>${esc(n)}</b></span></button>`).join("")}</div>`);
+  },
+  setsetor: async a => {
+    const { error } = await sb.from("compras").update({ setor: a.dataset.s }).eq("id", a.dataset.id);
+    closeSheet();
+    if (error) return toast(/setor|schema cache/i.test(error.message) ? "Falta rodar o atualizacao-setores.sql no Supabase." : error.message, true);
+    await LOAD.compras(); render(); toast("Setor alterado.");
   },
   rmitem: async a => { await sb.from("compras").delete().eq("id", a.dataset.id); await LOAD.compras(); render(); },
   finalizar: () => {
