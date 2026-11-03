@@ -312,6 +312,71 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
   .dial{left:254px;top:84px;bottom:auto;transform:none}
   .dial:not([hidden]){animation:none}
 }
+/* ===== Vidro (Liquid Glass) — só barras e botões ===== */
+:root{
+  --glass-bar:rgba(22,21,18,.72);
+  --glass-btn:rgba(255,248,230,.07);
+  --glass-btn-h:rgba(255,248,230,.12);
+  --glass-edge:rgba(255,248,230,.14);
+  --glass-hi:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 0 rgba(0,0,0,.25);
+  --glass-blur:blur(22px) saturate(170%);
+}
+/* barras */
+.top,.nav,.dial,.cartbar,.upd{
+  background:var(--glass-bar)!important;
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-color:var(--glass-edge)!important;
+  box-shadow:var(--glass-hi),0 10px 30px rgba(0,0,0,.35);
+}
+.top{box-shadow:inset 0 -1px 0 var(--glass-edge)}
+.nav{box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 -8px 30px rgba(0,0,0,.35)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:19;background:var(--glass-bar);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+/* botões */
+.btn,.chip,.month button,.x,.eye,.seg,.x-clear,.dial .ico,.avatar-btn{
+  -webkit-backdrop-filter:blur(14px) saturate(160%);backdrop-filter:blur(14px) saturate(160%);
+}
+.btn,.month button,.x,.chip{
+  background:var(--glass-btn);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--glass-hi);
+  transition:background .15s,transform .12s,box-shadow .15s;
+}
+.btn:hover,.month button:hover,.x:hover,.chip:hover{background:var(--glass-btn-h)}
+.btn:active,.month button:active,.x:active,.chip:active,.nav .plus:active,.dial button:active .ico{transform:scale(.97)}
+.btn.ghost{background:rgba(255,248,230,.04)}
+.btn.gold{
+  background:linear-gradient(180deg,rgba(236,198,112,.95),rgba(212,168,75,.9));
+  border-color:rgba(255,236,190,.45);color:#1a1405;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -1px 0 rgba(120,80,10,.35),0 6px 18px rgba(212,168,75,.22);
+}
+.btn.gold:hover{background:linear-gradient(180deg,rgba(242,210,135,.97),rgba(222,180,90,.93))}
+.btn.armed{background:rgba(224,92,92,.85);border-color:rgba(255,180,175,.4)}
+.ai-btn{background:linear-gradient(180deg,rgba(176,152,235,.95),rgba(155,127,224,.9))!important;border-color:rgba(220,205,255,.45)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 18px rgba(155,127,224,.2)!important}
+.btn.wa{background:linear-gradient(180deg,rgba(60,225,120,.95),rgba(37,211,102,.9));border-color:rgba(190,255,210,.45)}
+.chip[aria-pressed="true"]{background:rgba(212,168,75,.18);border-color:rgba(232,201,122,.6);box-shadow:var(--glass-hi),0 0 0 1px rgba(212,168,75,.15)}
+.seg{background:rgba(255,248,230,.05);border-color:var(--glass-edge);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.seg button[aria-pressed="true"]{background:rgba(255,248,230,.12);box-shadow:var(--glass-hi)}
+.nav .plus{
+  background:radial-gradient(120% 120% at 30% 20%,rgba(246,214,140,.98),rgba(212,168,75,.92) 60%,rgba(180,138,52,.92));
+  border:1px solid rgba(255,236,190,.5);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -2px 4px rgba(120,80,10,.3),0 8px 24px rgba(212,168,75,.35);
+}
+.dial .ico{box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 4px 12px rgba(0,0,0,.25);border:1px solid var(--glass-edge)}
+.nav button[aria-current="page"]{text-shadow:0 0 12px rgba(212,168,75,.45)}
+.eye{border-radius:50%}
+.eye:hover{background:var(--glass-btn)}
+@media (min-width:1000px){
+  .nav{background:rgba(22,21,18,.6)!important;box-shadow:inset -1px 0 0 var(--glass-edge)}
+  .nav button[aria-current="page"]{background:rgba(212,168,75,.14);box-shadow:var(--glass-hi)}
+  .nav .plus{border-radius:14px}
+}
+/* sem suporte a desfoque: fundo mais sólido para manter a leitura */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .top,.nav,.dial,.cartbar,.upd{background:rgba(22,21,18,.96)!important}
+}
+@media (prefers-reduced-transparency:reduce){
+  .top,.nav,.dial,.cartbar,.upd{background:rgba(22,21,18,.97)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+}
 @media print{
   :root{color-scheme:light}
   html,body{background:#fff;color:#111;padding:0}
@@ -330,7 +395,7 @@ main.sub-cartoes>section:first-of-type,main.sub-contas>section:first-of-type{ord
 <script>
 /* ===================== Configuração ===================== */
 const VAPID_PUBLIC = "BBRnA1UwgNcdTbb4e4ZOJzf-g1tQZv8uq1X12FGkpTxg6SQUI3w2p_Jlk0TFueWcyDKJ0ToUiWN7Esa29lLz1Dw";
-const APP_VERSION = "2026.10.30-2312";
+const APP_VERSION = "2026.11.03-1419";
 const SB_URL = "https://clefxqpoxwdflvwukbcb.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsZWZ4cXBveHdkZmx2d3VrYmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjE3NzcsImV4cCI6MjEwODMzNzc3N30.CzbXAywxIxR5FSdBu4LsVru_tmUJ0KoSNj1qkdgk07Q";
 // "Manter conectado": marcado guarda o login no aparelho; desmarcado vale só até fechar o navegador
@@ -1068,7 +1133,7 @@ function vCompras() {
     <div class="hint">Cada item vai sozinho para o setor do mercado. Se errar, toque em ⇄ setor.</div>
     ${it.length ? blocos : `<div class="empty">${qc ? `Nada na lista com "${esc(S.buscaC)}".` : "Lista vazia. Adicione o que falta em casa."}</div>`}
   </section>
-  ${got.length ? `<section class="card" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" id="cart-tot" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
+  ${got.length ? `<section class="card cartbar" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px))"><div class="card-h"><div><div class="label">No carrinho · ${got.length} ${got.length === 1 ? "item" : "itens"}</div><div class="serif" id="cart-tot" style="font-size:1.8rem;color:var(--gold2)">${brl(tot)}</div></div><button class="btn gold" data-act="finalizar">Finalizar e lançar</button></div></section>` : ""}`;
 }
 
 /* ===================== Mais ===================== */
